@@ -1,0 +1,79 @@
+"""Pydantic models for API requests."""
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
+
+
+class GenerateTestsRequest(BaseModel):
+    """Request model for test generation."""
+    project_id: str = Field(..., description="Google Cloud project ID")
+    comparison_mode: str = Field(..., description="Mode: 'schema', 'gcs', or 'gcs-config'")
+    
+    # Schema mode fields
+    datasets: Optional[List[str]] = Field(None, description="List of BigQuery datasets")
+    erd_description: Optional[str] = Field(None, description="ER diagram description")
+    
+    # GCS single file mode fields
+    gcs_bucket: Optional[str] = Field(None, description="GCS bucket name")
+    gcs_file_path: Optional[str] = Field(None, description="GCS file path (supports wildcards)")
+    file_format: Optional[str] = Field("csv", description="File format: csv, json, parquet, avro")
+    target_dataset: Optional[str] = Field(None, description="Target BigQuery dataset")
+    target_table: Optional[str] = Field(None, description="Target BigQuery table")
+    
+    # GCS config table mode fields
+    config_dataset: Optional[str] = Field(None, description="Config table dataset")
+    config_table: Optional[str] = Field(None, description="Config table name")
+    
+    # Common optional fields
+    enabled_test_ids: Optional[List[str]] = Field(None, description="List of test IDs to enable")
+
+
+class TestResult(BaseModel):
+    """Model for a single test result."""
+    test_id: Optional[str] = None
+    test_name: str
+    category: Optional[str] = None
+    description: str
+    status: str  # PASS, FAIL, ERROR
+    severity: str  # HIGH, MEDIUM, LOW
+    sql_query: str
+    rows_affected: int = 0
+    error_message: Optional[str] = None
+
+
+class MappingInfo(BaseModel):
+    """Information about a data mapping."""
+    source: str
+    target: str
+    file_row_count: int
+    table_row_count: int
+
+
+class AISuggestion(BaseModel):
+    """AI-generated test suggestion."""
+    test_name: str
+    test_category: str
+    severity: str
+    sql_query: str
+    reasoning: str
+
+
+class MappingResult(BaseModel):
+    """Results for a single mapping."""
+    mapping_id: str
+    mapping_info: Optional[MappingInfo] = None
+    predefined_results: List[TestResult]
+    ai_suggestions: List[AISuggestion] = []
+    error: Optional[str] = None
+
+
+class CustomTestRequest(BaseModel):
+    """Request model for saving a custom test."""
+    project_id: str
+    dataset_id: str = "config"  # Default config dataset
+    test_name: str
+    test_category: str
+    severity: str
+    sql_query: str
+    description: str
+    target_dataset: Optional[str] = None
+    target_table: Optional[str] = None

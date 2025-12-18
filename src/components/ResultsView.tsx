@@ -1,16 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 interface TestResult {
+    test_id?: string;
     test_name: string;
     description: string;
     sql_query: string;
     severity: string;
     status: "PASS" | "FAIL" | "ERROR";
-    failed_rows?: number;
+    rows_affected?: number;
     error_message?: string;
+}
+
+interface MappingResult {
+    mapping_id: string;
+    mapping_info?: {
+        source: string;
+        target: string;
+        file_row_count: number;
+        table_row_count: number;
+    };
+    predefined_results: TestResult[];
+    ai_suggestions?: any[];
+    error?: string;
 }
 
 const COLORS = {
@@ -21,24 +35,321 @@ const COLORS = {
 
 export default function ResultsView() {
     const [results, setResults] = useState<TestResult[]>([]);
+    const [mappingResults, setMappingResults] = useState<MappingResult[]>([]);
+    const [summary, setSummary] = useState<any>(null);
+    const [isConfigMode, setIsConfigMode] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [savedTests, setSavedTests] = useState<Set<string>>(new Set());
+    const [projectId, setProjectId] = useState<string>("");
 
     useEffect(() => {
         const data = localStorage.getItem("testResults");
         if (data) {
             try {
                 const parsed = JSON.parse(data);
-                setResults(parsed.results || []);
+
+                // Try to extract project_id from mapping info or summary if available
+                if (parsed.project_id) {
+                    setProjectId(parsed.project_id);
+                } else if (parsed.results_by_mapping && parsed.results_by_mapping.length > 0) {
+                    // Check if we can infer project_id from context, otherwise we might need it passed
+                    // For now, let's assume it's in the local storage or context
+                    // If not, we might fail to save. 
+                    // Let's check where projectId comes from. It was in DashboardForm.
+                    // We should modify DashboardForm to save projectId in local storage too or pass it.
+                }
+
+                // Check if it's config table mode (has results_by_mapping)
+                if (parsed.results_by_mapping) {
+                    setIsConfigMode(true);
+                    setMappingResults(parsed.results_by_mapping);
+                    setSummary(parsed.summary);
+                } else if (parsed.results) {
+                    // Single file or schema mode
+                    setResults(parsed.results);
+                } else if (parsed.predefined_results) {
+                    // Single GCS file mode
+                    setResults(parsed.predefined_results);
+                    setSummary(parsed.summary);
+                }
             } catch (e) {
                 console.error("Failed to parse results", e);
             }
         }
+
+        // Also try to get projectId from separate storage if not in results
+        const storedProjectId = localStorage.getItem("projectId");
+        if (storedProjectId) {
+            setProjectId(storedProjectId);
+        }
+
         setLoading(false);
     }, []);
 
-    if (loading) return <div>Loading results...</div>;
-    if (results.length === 0) return <div>No results found. Please run a test first.</div>;
+    const handleSaveCustomTest = async (suggestion: any, mappingId: string, targetDataset: string | null = null, targetTable: string | null = null) => {
+        if (!projectId) {
+            alert("Project ID not found. Cannot save custom test.");
+            return;
+        }
 
+        try {
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://data-qa-agent-backend-750147355601.us-central1.run.app';
+            const payload = {
+                project_id: projectId,
+                test_name: suggestion.test_name,
+                test_category: suggestion.test_category || "custom",
+                severity: suggestion.severity,
+                sql_query: suggestion.sql_query,
+                description: suggestion.reasoning,
+                target_dataset: targetDataset,
+                target_table: targetTable
+            };
+
+            const response = await fetch(`${backendUrl}/api/custom-tests`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to save custom test");
+            }
+
+            // Mark as saved
+            const key = `${mappingId}-${suggestion.test_name}`;
+            setSavedTests(prev => new Set(prev).add(key));
+            alert("Test case saved to Custom Tests successfully!");
+
+        } catch (error) {
+            console.error("Error saving custom test:", error);
+            alert("Failed to save custom test.");
+        }
+    };
+
+    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading results...</div>;
+
+    if (!isConfigMode && results.length === 0) {
+        return <div style={{ padding: '2rem', textAlign: 'center' }}>No results found. Please run a test first.</div>;
+    }
+
+    if (isConfigMode && mappingResults.length === 0) {
+        return <div style={{ padding: '2rem', textAlign: 'center' }}>No results found. Please run a test first.</div>;
+    }
+
+    // Config table mode - show results grouped by mapping
+    if (isConfigMode) {
+        return (
+            <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+                <h2 style={{ fontSize: '2rem', fontWeight: '700', marginBottom: '1rem' }}>
+                    Test Results - Config Table Mode
+                </h2>
+
+                {/* Overall Summary */}
+                {summary && (
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: '1rem',
+                        marginBottom: '2rem'
+                    }}>
+                        <div className="card" style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--primary)' }}>
+                                {summary.total_mappings}
+                            </div>
+                            <div style={{ color: 'var(--secondary-foreground)' }}>Total Mappings</div>
+                        </div>
+                        <div className="card" style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '2rem', fontWeight: '700', color: '#10b981' }}>
+                                {summary.passed}
+                            </div>
+                            <div style={{ color: 'var(--secondary-foreground)' }}>Tests Passed</div>
+                        </div>
+                        <div className="card" style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '2rem', fontWeight: '700', color: '#ef4444' }}>
+                                {summary.failed}
+                            </div>
+                            <div style={{ color: 'var(--secondary-foreground)' }}>Tests Failed</div>
+                        </div>
+                        <div className="card" style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f59e0b' }}>
+                                {summary.errors}
+                            </div>
+                            <div style={{ color: 'var(--secondary-foreground)' }}>Errors</div>
+                        </div>
+                        {summary.total_suggestions > 0 && (
+                            <div className="card" style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--primary)' }}>
+                                    {summary.total_suggestions}
+                                </div>
+                                <div style={{ color: 'var(--secondary-foreground)' }}>AI Suggestions</div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Results by Mapping */}
+                {mappingResults.map((mapping, idx) => {
+                    const mappingStats = {
+                        PASS: mapping.predefined_results.filter(r => r.status === 'PASS').length,
+                        FAIL: mapping.predefined_results.filter(r => r.status === 'FAIL').length,
+                        ERROR: mapping.predefined_results.filter(r => r.status === 'ERROR').length,
+                    };
+
+                    return (
+                        <div key={idx} className="card" style={{ marginBottom: '2rem' }}>
+                            <h3 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1rem' }}>
+                                {mapping.mapping_id}
+                            </h3>
+
+                            {mapping.mapping_info && (
+                                <div style={{
+                                    padding: '1rem',
+                                    background: 'var(--secondary)',
+                                    borderRadius: 'var(--radius)',
+                                    marginBottom: '1rem',
+                                    fontSize: '0.875rem'
+                                }}>
+                                    <div><strong>Source:</strong> {mapping.mapping_info.source}</div>
+                                    <div><strong>Target:</strong> {mapping.mapping_info.target}</div>
+                                    <div><strong>Row Counts:</strong> GCS: {mapping.mapping_info.file_row_count}, BigQuery: {mapping.mapping_info.table_row_count}</div>
+                                </div>
+                            )}
+
+                            {mapping.error && (
+                                <div style={{ padding: '1rem', background: '#fef2f2', color: '#991b1b', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>
+                                    <strong>Error:</strong> {mapping.error}
+                                </div>
+                            )}
+
+                            {/* Mapping Stats */}
+                            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                                <div style={{ padding: '0.5rem 1rem', background: '#d1fae5', color: '#065f46', borderRadius: 'var(--radius)', fontWeight: '600' }}>
+                                    ✓ {mappingStats.PASS} Passed
+                                </div>
+                                <div style={{ padding: '0.5rem 1rem', background: '#fee2e2', color: '#991b1b', borderRadius: 'var(--radius)', fontWeight: '600' }}>
+                                    ✗ {mappingStats.FAIL} Failed
+                                </div>
+                                {mappingStats.ERROR > 0 && (
+                                    <div style={{ padding: '0.5rem 1rem', background: '#fef3c7', color: '#92400e', borderRadius: 'var(--radius)', fontWeight: '600' }}>
+                                        ⚠ {mappingStats.ERROR} Errors
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Test Results Table */}
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                                            <th style={{ padding: '0.75rem', textAlign: 'left' }}>Test Name</th>
+                                            <th style={{ padding: '0.75rem', textAlign: 'left' }}>Status</th>
+                                            <th style={{ padding: '0.75rem', textAlign: 'left' }}>Severity</th>
+                                            <th style={{ padding: '0.75rem', textAlign: 'left' }}>Rows Affected</th>
+                                            <th style={{ padding: '0.75rem', textAlign: 'left' }}>Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {mapping.predefined_results.map((test, testIdx) => (
+                                            <tr key={testIdx} style={{ borderBottom: '1px solid var(--border)' }}>
+                                                <td style={{ padding: '0.75rem' }}>{test.test_name}</td>
+                                                <td style={{ padding: '0.75rem' }}>
+                                                    <span style={{
+                                                        padding: '0.25rem 0.75rem',
+                                                        borderRadius: '9999px',
+                                                        fontSize: '0.875rem',
+                                                        fontWeight: '600',
+                                                        background: test.status === 'PASS' ? '#d1fae5' : test.status === 'FAIL' ? '#fee2e2' : '#fef3c7',
+                                                        color: test.status === 'PASS' ? '#065f46' : test.status === 'FAIL' ? '#991b1b' : '#92400e'
+                                                    }}>
+                                                        {test.status}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '0.75rem' }}>{test.severity}</td>
+                                                <td style={{ padding: '0.75rem' }}>{test.rows_affected || 0}</td>
+                                                <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
+                                                    {test.error_message || test.description}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* AI Suggestions */}
+                            {mapping.ai_suggestions && mapping.ai_suggestions.length > 0 && (
+                                <div style={{ marginTop: '1.5rem' }}>
+                                    <h4 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
+                                        🤖 AI Suggested Tests ({mapping.ai_suggestions.length})
+                                    </h4>
+                                    {mapping.ai_suggestions.map((suggestion, sugIdx) => {
+                                        const isSaved = savedTests.has(`${mapping.mapping_id}-${suggestion.test_name}`);
+                                        return (
+                                            <div key={sugIdx} style={{
+                                                padding: '1rem',
+                                                background: 'var(--secondary)',
+                                                borderRadius: 'var(--radius)',
+                                                marginBottom: '0.75rem',
+                                                border: '2px dashed var(--primary)',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'flex-start'
+                                            }}>
+                                                <div>
+                                                    <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>{suggestion.test_name}</div>
+                                                    <div style={{ fontSize: '0.875rem', color: 'var(--secondary-foreground)', marginBottom: '0.5rem' }}>
+                                                        {suggestion.reasoning}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--secondary-foreground)' }}>
+                                                        Severity: {suggestion.severity}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        // Extract target dataset/table from mapping info if possible
+                                                        // mapping.mapping_info.target usually has "dataset.table"
+                                                        let targetDataset = null;
+                                                        let targetTable = null;
+                                                        if (mapping.mapping_info && mapping.mapping_info.target) {
+                                                            const parts = mapping.mapping_info.target.split('.');
+                                                            if (parts.length === 2) {
+                                                                targetDataset = parts[0];
+                                                                targetTable = parts[1];
+                                                            }
+                                                        }
+                                                        handleSaveCustomTest(suggestion, mapping.mapping_id, targetDataset, targetTable);
+                                                    }}
+                                                    disabled={isSaved}
+                                                    style={{
+                                                        padding: '0.5rem 1rem',
+                                                        backgroundColor: isSaved ? '#10b981' : 'var(--primary)',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: 'var(--radius)',
+                                                        cursor: isSaved ? 'default' : 'pointer',
+                                                        fontSize: '0.875rem',
+                                                        fontWeight: '600',
+                                                        whiteSpace: 'nowrap',
+                                                        marginLeft: '1rem',
+                                                        opacity: isSaved ? 0.7 : 1
+                                                    }}
+                                                >
+                                                    {isSaved ? '✓ Added' : '+ Add to Custom'}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    }
+
+    // Single file/schema mode - original display
     const stats = {
         PASS: results.filter((r) => r.status === "PASS").length,
         FAIL: results.filter((r) => r.status === "FAIL").length,
@@ -52,37 +363,31 @@ export default function ResultsView() {
     ];
 
     return (
-        <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
-                {/* Summary Cards */}
+        <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+            <h2 style={{ fontSize: '2rem', fontWeight: '700', marginBottom: '2rem' }}>Test Results</h2>
+
+            {/* Summary Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
                 <div className="card" style={{ textAlign: 'center' }}>
-                    <h3>Total Tests</h3>
-                    <p style={{ fontSize: '3rem', fontWeight: 'bold' }}>{results.length}</p>
+                    <div style={{ fontSize: '2rem', fontWeight: '700', color: '#10b981' }}>{stats.PASS}</div>
+                    <div style={{ color: 'var(--secondary-foreground)' }}>Passed</div>
                 </div>
-                <div className="card" style={{ textAlign: 'center', color: COLORS.PASS }}>
-                    <h3>Passed</h3>
-                    <p style={{ fontSize: '3rem', fontWeight: 'bold' }}>{stats.PASS}</p>
+                <div className="card" style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: '700', color: '#ef4444' }}>{stats.FAIL}</div>
+                    <div style={{ color: 'var(--secondary-foreground)' }}>Failed</div>
                 </div>
-                <div className="card" style={{ textAlign: 'center', color: COLORS.FAIL }}>
-                    <h3>Failed</h3>
-                    <p style={{ fontSize: '3rem', fontWeight: 'bold' }}>{stats.FAIL}</p>
+                <div className="card" style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f59e0b' }}>{stats.ERROR}</div>
+                    <div style={{ color: 'var(--secondary-foreground)' }}>Errors</div>
                 </div>
             </div>
 
-            <div className="card" style={{ marginBottom: '2rem', height: '400px' }}>
-                <h3>Test Results Overview</h3>
-                <ResponsiveContainer width="100%" height="100%">
+            {/* Pie Chart */}
+            <div className="card" style={{ marginBottom: '2rem' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>Test Distribution</h3>
+                <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
-                        <Pie
-                            data={chartData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={100}
-                            fill="#8884d8"
-                            paddingAngle={5}
-                            dataKey="value"
-                        >
+                        <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
                             {chartData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[entry.name.toUpperCase() as keyof typeof COLORS]} />
                             ))}
@@ -93,70 +398,100 @@ export default function ResultsView() {
                 </ResponsiveContainer>
             </div>
 
+            {/* Detailed Results Table */}
             <div className="card">
-                <h3>Detailed Results</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>Detailed Results</h3>
                 <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
-                            <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'left' }}>
-                                <th style={{ padding: '1rem' }}>Status</th>
-                                <th style={{ padding: '1rem' }}>Test Name</th>
-                                <th style={{ padding: '1rem' }}>Severity</th>
-                                <th style={{ padding: '1rem' }}>Failed Rows</th>
-                                <th style={{ padding: '1rem' }}>Description</th>
-                                <th style={{ padding: '1rem' }}>Error/Details</th>
+                            <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Test Name</th>
+                                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Status</th>
+                                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Severity</th>
+                                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Details</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {results.map((result, idx) => (
-                                <>
-                                    <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
-                                        <td style={{ padding: '1rem', fontWeight: 'bold', color: COLORS[result.status] }}>
-                                            {result.status}
-                                        </td>
-                                        <td style={{ padding: '1rem' }}>{result.test_name}</td>
-                                        <td style={{ padding: '1rem' }}>{result.severity}</td>
-                                        <td style={{ padding: '1rem' }}>{result.failed_rows ?? 0}</td>
-                                        <td style={{ padding: '1rem' }}>{result.description}</td>
-                                        <td style={{ padding: '1rem' }}>
-                                            {result.status === 'ERROR' && result.error_message && (
-                                                <div style={{
-                                                    backgroundColor: 'var(--secondary)',
-                                                    padding: '0.5rem',
-                                                    borderRadius: '4px',
-                                                    fontSize: '0.875rem',
-                                                    color: '#ef4444',
-                                                    maxWidth: '400px',
-                                                    overflow: 'auto'
-                                                }}>
-                                                    {result.error_message}
-                                                </div>
-                                            )}
-                                            {result.status !== 'ERROR' && (
-                                                <details style={{ cursor: 'pointer' }}>
-                                                    <summary style={{ fontSize: '0.875rem', color: 'var(--primary)' }}>
-                                                        View SQL
-                                                    </summary>
-                                                    <pre style={{
-                                                        backgroundColor: 'var(--secondary)',
-                                                        padding: '0.5rem',
-                                                        borderRadius: '4px',
-                                                        fontSize: '0.75rem',
-                                                        overflow: 'auto',
-                                                        marginTop: '0.5rem'
-                                                    }}>
-                                                        {result.sql_query}
-                                                    </pre>
-                                                </details>
-                                            )}
-                                        </td>
-                                    </tr>
-                                </>
+                            {results.map((test, index) => (
+                                <tr key={index} style={{ borderBottom: '1px solid var(--border)' }}>
+                                    <td style={{ padding: '0.75rem' }}>{test.test_name}</td>
+                                    <td style={{ padding: '0.75rem' }}>
+                                        <span style={{
+                                            padding: '0.25rem 0.75rem',
+                                            borderRadius: '9999px',
+                                            fontSize: '0.875rem',
+                                            fontWeight: '600',
+                                            background: test.status === 'PASS' ? '#d1fae5' : test.status === 'FAIL' ? '#fee2e2' : '#fef3c7',
+                                            color: test.status === 'PASS' ? '#065f46' : test.status === 'FAIL' ? '#991b1b' : '#92400e'
+                                        }}>
+                                            {test.status}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: '0.75rem' }}>{test.severity}</td>
+                                    <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
+                                        {test.error_message || test.description}
+                                    </td>
+                                </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            {/* AI Suggestions (Single File Mode) */}
+            {summary && summary.ai_suggestions && summary.ai_suggestions.length > 0 && (
+                <div className="card" style={{ marginTop: '2rem' }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
+                        🤖 AI Suggested Tests ({summary.ai_suggestions.length})
+                    </h3>
+                    {summary.ai_suggestions.map((suggestion: any, idx: number) => {
+                        const isSaved = savedTests.has(`single-${suggestion.test_name}`);
+                        return (
+                            <div key={idx} style={{
+                                padding: '1rem',
+                                background: 'var(--secondary)',
+                                borderRadius: 'var(--radius)',
+                                marginBottom: '0.75rem',
+                                border: '2px dashed var(--primary)',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start'
+                            }}>
+                                <div>
+                                    <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>{suggestion.test_name}</div>
+                                    <div style={{ fontSize: '0.875rem', color: 'var(--secondary-foreground)', marginBottom: '0.5rem' }}>
+                                        {suggestion.reasoning}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--secondary-foreground)' }}>
+                                        Severity: {suggestion.severity}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        handleSaveCustomTest(suggestion, 'single');
+                                    }}
+                                    disabled={isSaved}
+                                    style={{
+                                        padding: '0.5rem 1rem',
+                                        backgroundColor: isSaved ? '#10b981' : 'var(--primary)',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius)',
+                                        cursor: isSaved ? 'default' : 'pointer',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '600',
+                                        whiteSpace: 'nowrap',
+                                        marginLeft: '1rem',
+                                        opacity: isSaved ? 0.7 : 1
+                                    }}
+                                >
+                                    {isSaved ? '✓ Added' : '+ Add to Custom'}
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }

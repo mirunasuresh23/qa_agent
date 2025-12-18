@@ -1,14 +1,20 @@
+"use client";
+
+import { useState } from "react";
 import LoginButton from "@/components/LoginButton";
+import DashboardForm from "@/components/DashboardForm";
+import Sidebar from "@/components/Sidebar";
+
+type ComparisonMode = 'schema' | 'gcs' | 'history';
 
 export default function Home() {
+    const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('schema');
+
     return (
         <main style={{
             minHeight: '100vh',
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '2rem',
             position: 'relative',
             overflow: 'hidden'
         }}>
@@ -21,85 +27,76 @@ export default function Home() {
                 height: '200%',
                 background: 'radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%)',
                 animation: 'gradient-shift 15s ease infinite',
-                pointerEvents: 'none'
+                pointerEvents: 'none',
+                zIndex: 0
             }} />
 
-            <div style={{
-                maxWidth: '800px',
-                textAlign: 'center',
-                position: 'relative',
-                zIndex: 1
-            }} className="fade-in">
-                {/* Main heading with gradient */}
-                <h1 style={{
-                    fontSize: 'clamp(2.5rem, 8vw, 4.5rem)',
-                    fontWeight: '800',
-                    marginBottom: '1.5rem',
-                    lineHeight: '1.1',
-                    letterSpacing: '-0.02em'
-                }} className="gradient-text">
-                    Data QA Agent
-                </h1>
+            <div className="dashboard-layout">
+                {/* Sidebar */}
+                <Sidebar currentMode={comparisonMode} onModeChange={setComparisonMode} />
 
-                {/* Subtitle */}
-                <p style={{
-                    fontSize: 'clamp(1.125rem, 3vw, 1.5rem)',
-                    color: 'var(--secondary-foreground)',
-                    marginBottom: '3rem',
-                    lineHeight: '1.6',
-                    fontWeight: '400'
-                }}>
-                    AI-powered data quality testing across BigQuery datasets.
-                    <br />
-                    <span style={{ fontSize: '1rem', opacity: 0.8 }}>
-                        Verify schemas, generate test cases, and ensure data integrity automatically.
-                    </span>
-                </p>
+                {/* Main Content Area */}
+                <div className="main-content">
+                    <div style={{
+                        maxWidth: '1000px',
+                        margin: '0 auto',
+                    }} className="fade-in">
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
+                            <div>
+                                <h1 style={{
+                                    fontSize: '2.5rem',
+                                    fontWeight: '800',
+                                    marginBottom: '0.5rem',
+                                    lineHeight: '1.1',
+                                    letterSpacing: '-0.02em'
+                                }} className="gradient-text">
+                                    Data QA Agent
+                                </h1>
+                                <p style={{
+                                    fontSize: '1rem',
+                                    color: 'var(--secondary-foreground)',
+                                    opacity: 0.8
+                                }}>
+                                    AI-powered data quality testing
+                                </p>
+                            </div>
+                            <LoginButton />
+                        </div>
 
-                {/* Feature highlights */}
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                    gap: '1.5rem',
-                    marginBottom: '3rem'
-                }}>
-                    <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                        <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🤖</div>
-                        <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem' }}>AI-Powered</h3>
-                        <p style={{ fontSize: '0.875rem', color: 'var(--secondary-foreground)' }}>
-                            Gemini analyzes your schemas
-                        </p>
-                    </div>
+                        {/* Feature highlights (Mini) */}
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                            gap: '1rem',
+                            marginBottom: '2rem'
+                        }}>
+                            <div className="card" style={{ padding: '1rem', textAlign: 'center', background: 'rgba(255,255,255,0.05)' }}>
+                                <span style={{ marginRight: '0.5rem' }}>🤖</span> Gemini AI Analysis
+                            </div>
+                            <div className="card" style={{ padding: '1rem', textAlign: 'center', background: 'rgba(255,255,255,0.05)' }}>
+                                <span style={{ marginRight: '0.5rem' }}>⚡</span> Automated Testing
+                            </div>
+                            <div className="card" style={{ padding: '1rem', textAlign: 'center', background: 'rgba(255,255,255,0.05)' }}>
+                                <span style={{ marginRight: '0.5rem' }}>📊</span> Multi-Dataset
+                            </div>
+                        </div>
 
-                    <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                        <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚡</div>
-                        <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem' }}>Automated</h3>
-                        <p style={{ fontSize: '0.875rem', color: 'var(--secondary-foreground)' }}>
-                            Generate & run tests instantly
-                        </p>
-                    </div>
+                        {/* Main Form */}
+                        <DashboardForm comparisonMode={comparisonMode} />
 
-                    <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                        <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📊</div>
-                        <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem' }}>Multi-Dataset</h3>
-                        <p style={{ fontSize: '0.875rem', color: 'var(--secondary-foreground)' }}>
-                            Test across multiple datasets
+                        {/* Footer */}
+                        <p style={{
+                            marginTop: '3rem',
+                            textAlign: 'center',
+                            fontSize: '0.875rem',
+                            color: 'var(--secondary-foreground)',
+                            opacity: 0.7
+                        }}>
+                            Powered by Google Cloud Vertex AI & BigQuery
                         </p>
                     </div>
                 </div>
-
-                {/* CTA Button */}
-                <LoginButton />
-
-                {/* Additional info */}
-                <p style={{
-                    marginTop: '2rem',
-                    fontSize: '0.875rem',
-                    color: 'var(--secondary-foreground)',
-                    opacity: 0.7
-                }}>
-                    Powered by Google Cloud Vertex AI & BigQuery
-                </p>
             </div>
         </main>
     );
