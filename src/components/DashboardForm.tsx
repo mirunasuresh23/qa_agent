@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import HistoryList from "./HistoryList";
 
@@ -20,6 +20,14 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
     // Common fields
     const [projectId, setProjectId] = useState("");
     const [loading, setLoading] = useState(false);
+
+    // Persistence: load from localStorage on mount
+    useEffect(() => {
+        const savedProjectId = localStorage.getItem("projectId");
+        if (savedProjectId) {
+            setProjectId(savedProjectId);
+        }
+    }, []);
 
     // Schema mode state
     const [datasets, setDatasets] = useState<string[]>(['']);
@@ -168,7 +176,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                     value={projectId}
                     onChange={(e) => setProjectId(e.target.value)}
                     required
-                    placeholder="e.g., miruna-sandpit"
+                    placeholder="Project with BigQuery data (e.g., miruna-sandpit)"
                 />
             </div>
 

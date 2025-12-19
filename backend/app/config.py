@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     debug: bool = False
     
     # Google Cloud
-    google_cloud_project: str = "miruna-sandpit"
+    google_cloud_project: str = "leyin-sandpit"
     vertex_ai_location: str = "us-central1"
     vertex_ai_model: str = "gemini-2.5-flash"
     
