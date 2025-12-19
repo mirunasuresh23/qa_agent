@@ -5,10 +5,10 @@
 
 # Extract configuration from cloudbuild.yaml (single source of truth)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVICE_NAME=$(grep '_SERVICE_NAME:' "${SCRIPT_DIR}/cloudbuild.yaml" | awk '{print $2}')
-REGION=$(grep '_REGION:' "${SCRIPT_DIR}/cloudbuild.yaml" | awk '{print $2}')
+SERVICE_NAME=$(grep "^[[:space:]]*_SERVICE_NAME:" "${SCRIPT_DIR}/cloudbuild.yaml" | awk '{print $2}')
+REGION=$(grep "^[[:space:]]*_REGION:" "${SCRIPT_DIR}/cloudbuild.yaml" | awk '{print $2}')
 
-PROJECT_ID=$(grep '_PROJECT_ID:' "${SCRIPT_DIR}/cloudbuild.yaml" | awk '{print $2}')
+PROJECT_ID=$(grep "^[[:space:]]*_PROJECT_ID:" "${SCRIPT_DIR}/cloudbuild.yaml" | awk '{print $2}')
 IMAGE_NAME="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
 
 echo "Starting deployment for ${SERVICE_NAME}..."
