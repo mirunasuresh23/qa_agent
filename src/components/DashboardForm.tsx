@@ -75,7 +75,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
         setLoading(true);
 
         try {
-            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://data-qa-agent-backend-750147355601.us-central1.run.app';
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://data-qa-agent-backend-1037417342779.us-central1.run.app';
             const endpoint = `${backendUrl}/api/generate-tests`;
 
             let payload: any = {
