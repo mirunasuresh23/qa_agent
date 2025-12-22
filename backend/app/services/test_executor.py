@@ -174,6 +174,14 @@ class TestExecutor:
                 predefined_results=predefined_results,
                 ai_suggestions=ai_suggestions
             )
+        except Exception as e:
+            logger.error(f"Error in process_mapping for {mapping_id}: {str(e)}")
+            return MappingResult(
+                mapping_id=mapping_id,
+                predefined_results=[],
+                ai_suggestions=[],
+                error=str(e)
+            )
     
     async def process_scd(
         self,
