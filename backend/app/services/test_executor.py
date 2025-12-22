@@ -234,6 +234,8 @@ class TestExecutor:
                     enabled_test_ids.extend(['scd1_primary_key_null', 'scd1_primary_key_unique'])
                 elif scd_type == 'scd2':
                     enabled_test_ids.extend([
+                        'surrogate_key_null', 'surrogate_key_unique',
+                        'scd2_primary_key_null',
                         'scd2_begin_date_null', 'scd2_end_date_null', 'scd2_flag_null',
                         'scd2_one_current_row', 'scd2_current_date_check', 
                         'scd2_invalid_flag_combination', 'scd2_date_order',
