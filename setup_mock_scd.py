@@ -54,22 +54,22 @@ scd2_schema = [
 scd2_data = [
     # Valid record
     {"UserId": "U1", "UserName": "User 1 Old", "DWEmployeeID": 5001, "DWBeginEffDateTime": "2023-01-01T00:00:00Z", "DWEndEffDateTime": "2023-06-01T00:00:00Z", "DWCurrentRowFlag": "N"},
-    {"UserId": "U1", "UserName": "User 1 New", "DWEmployeeID": 5002, "DWBeginEffDateTime": "2023-06-01T00:00:00Z", "DWEndEffDateTime": "9999-12-31T23:59:59Z", "DWCurrentRowFlag": "Y"},
+    {"UserId": "U1", "UserName": "User 1 New", "DWEmployeeID": 5002, "DWBeginEffDateTime": "2023-06-01T00:00:00Z", "DWEndEffDateTime": "2099-12-31T23:59:59Z", "DWCurrentRowFlag": "Y"},
     
     # Overlapping Dates (U2)
     {"UserId": "U2", "UserName": "User 2 A", "DWEmployeeID": 5003, "DWBeginEffDateTime": "2023-01-01T00:00:00Z", "DWEndEffDateTime": "2023-08-01T00:00:00Z", "DWCurrentRowFlag": "N"},
-    {"UserId": "U2", "UserName": "User 2 B", "DWEmployeeID": 5004, "DWBeginEffDateTime": "2023-07-01T00:00:00Z", "DWEndEffDateTime": "9999-12-31T23:59:59Z", "DWCurrentRowFlag": "Y"},
+    {"UserId": "U2", "UserName": "User 2 B", "DWEmployeeID": 5004, "DWBeginEffDateTime": "2023-07-01T00:00:00Z", "DWEndEffDateTime": "2099-12-31T23:59:59Z", "DWCurrentRowFlag": "Y"},
     
     # Multiple Active Flags (U3)
-    {"UserId": "U3", "UserName": "User 3 A", "DWEmployeeID": 5005, "DWBeginEffDateTime": "2023-01-01T00:00:00Z", "DWEndEffDateTime": "9999-12-31T23:59:59Z", "DWCurrentRowFlag": "Y"},
-    {"UserId": "U3", "UserName": "User 3 B", "DWEmployeeID": 5006, "DWBeginEffDateTime": "2023-06-01T00:00:00Z", "DWEndEffDateTime": "9999-12-31T23:59:59Z", "DWCurrentRowFlag": "Y"},
+    {"UserId": "U3", "UserName": "User 3 A", "DWEmployeeID": 5005, "DWBeginEffDateTime": "2023-01-01T00:00:00Z", "DWEndEffDateTime": "2099-12-31T23:59:59Z", "DWCurrentRowFlag": "Y"},
+    {"UserId": "U3", "UserName": "User 3 B", "DWEmployeeID": 5006, "DWBeginEffDateTime": "2023-06-01T00:00:00Z", "DWEndEffDateTime": "2099-12-31T23:59:59Z", "DWCurrentRowFlag": "Y"},
     
     # Invalid Date Order (U4)
     {"UserId": "U4", "UserName": "User 4", "DWEmployeeID": 5007, "DWBeginEffDateTime": "2023-12-01T00:00:00Z", "DWEndEffDateTime": "2023-01-01T00:00:00Z", "DWCurrentRowFlag": "Y"},
 
     # Gap (U5)
     {"UserId": "U5", "UserName": "User 5 A", "DWEmployeeID": 5008, "DWBeginEffDateTime": "2023-01-01T00:00:00Z", "DWEndEffDateTime": "2023-03-01T00:00:00Z", "DWCurrentRowFlag": "N"},
-    {"UserId": "U5", "UserName": "User 5 B", "DWEmployeeID": 5009, "DWBeginEffDateTime": "2023-05-01T00:00:00Z", "DWEndEffDateTime": "9999-12-31T23:59:59Z", "DWCurrentRowFlag": "Y"}
+    {"UserId": "U5", "UserName": "User 5 B", "DWEmployeeID": 5009, "DWBeginEffDateTime": "2023-05-01T00:00:00Z", "DWEndEffDateTime": "2099-12-31T23:59:59Z", "DWCurrentRowFlag": "Y"}
 ]
 
 def create_table_with_data(table_id, schema, data):

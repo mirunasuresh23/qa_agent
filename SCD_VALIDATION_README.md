@@ -20,9 +20,9 @@ The QA Agent now supports **SCD Type 1 and Type 2 Validation**. This feature val
 - Added `/api/scd-config` endpoint to support adding new configurations
 
 **File**: `backend/app/tests/predefined_tests.py`
-- Added 13 SCD-specific test templates:
+- Added 15 SCD-specific test templates:
   - **SCD1 Tests**: `scd1_primary_key_null`, `scd1_primary_key_unique`
-  - **SCD2 Tests**: `scd2_begin_date_null`, `scd2_end_date_null`, `scd2_flag_null`, `scd2_one_current_row`, `scd2_overlapping_dates`, `scd2_continuity`, `scd2_invalid_flag_combination`, `scd2_date_order`, `scd2_unique_begin_date`, `scd2_unique_end_date`, `scd2_no_record_after_current`
+  - **SCD2 Tests**: `scd2_begin_date_null`, `scd2_end_date_null`, `scd2_flag_null`, `scd2_one_current_row`, `scd2_current_date_check`, `scd2_continuity`, `scd2_invalid_flag_combination`, `scd2_date_order`, `scd2_unique_begin_date`, `scd2_unique_end_date`, `scd2_no_record_after_current`
   - **Surrogate Key Tests**: `surrogate_key_null`, `surrogate_key_unique`
 
 ### Frontend Changes
@@ -58,7 +58,7 @@ The QA Agent now supports **SCD Type 1 and Type 2 Validation**. This feature val
 
 3. **Verify Tables Created**:
    - `leyin-sandpit.crown_scd_mock.D_Seat_WD` (4 rows)
-   - `leyin-sandpit.crown_scd_mock.D_Employee_WD` (8 rows)
+   - `leyin-sandpit.crown_scd_mock.D_Employee_WD` (9 rows)
    - `leyin-sandpit.transform_config.scd_validation_config` (3 rows)
 
 ### Step 2: Test SCD Type 1 Validation
@@ -105,10 +105,10 @@ The QA Agent now supports **SCD Type 1 and Type 2 Validation**. This feature val
 3. **Expected Results**:
    - ✅ **PASS**: `scd2_begin_date_null`, `scd2_end_date_null`, `scd2_flag_null` (no nulls)
    - ✅ **PASS**: `surrogate_key_null`, `surrogate_key_unique`
-   - ❌ **FAIL**: `scd2_overlapping_dates` - Should detect **UserId='U2'** (dates overlap: 2023-07-01 starts before 2023-08-01 ends)
+   - ❌ **FAIL**: `scd2_continuity` - Should detect **UserId='U2'** (overlap) and **UserId='U5'** (gap)
    - ❌ **FAIL**: `scd2_one_current_row` - Should detect **UserId='U3'** (has 2 rows with DWCurrentRowFlag='Y')
    - ❌ **FAIL**: `scd2_date_order` - Should detect **UserId='U4'** (Begin Date > End Date)
-   - ❌ **FAIL**: `scd2_continuity` - Should detect **UserId='U5'** (gap between 2023-03-01 and 2023-05-01)
+   - ❌ **FAIL**: `scd2_current_date_check` - Should detect **UserId='U4'** (active flag 'Y' but end date not 2099)
 
 ### Step 4: Add New Configuration (New Feature)
 
@@ -146,14 +146,14 @@ The QA Agent now supports **SCD Type 1 and Type 2 Validation**. This feature val
 | UserId | UserName | Begin Date | End Date | Flag | Issue |
 |--------|----------|------------|----------|------|-------|
 | U1 | User 1 Old | 2023-01-01 | 2023-06-01 | N | ✅ Valid |
-| U1 | User 1 New | 2023-06-01 | 9999-12-31 | Y | ✅ Valid |
+| U1 | User 1 New | 2023-06-01 | 2099-12-31 | Y | ✅ Valid |
 | U2 | User 2 A | 2023-01-01 | 2023-08-01 | N | ❌ Overlaps with next row |
-| U2 | User 2 B | 2023-07-01 | 9999-12-31 | Y | ❌ Overlaps with previous row |
-| U3 | User 3 A | 2023-01-01 | 9999-12-31 | Y | ❌ Multiple active flags |
-| U3 | User 3 B | 2023-06-01 | 9999-12-31 | Y | ❌ Multiple active flags |
+| U2 | User 2 B | 2023-07-01 | 2099-12-31 | Y | ❌ Overlaps with previous row |
+| U3 | User 3 A | 2023-01-01 | 2099-12-31 | Y | ❌ Multiple active flags |
+| U3 | User 3 B | 2023-06-01 | 2099-12-31 | Y | ❌ Multiple active flags |
 | U4 | User 4 | 2023-12-01 | 2023-01-01 | Y | ❌ Begin > End |
 | U5 | User 5 A | 2023-01-01 | 2023-03-01 | N | ❌ Gap before next row |
-| U5 | User 5 B | 2023-05-01 | 9999-12-31 | Y | ❌ Gap after previous row |
+| U5 | User 5 B | 2023-05-01 | 2099-12-31 | Y | ❌ Gap after previous row |
 
 ---
 
