@@ -6,6 +6,7 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recha
 interface TestResult {
     test_id?: string;
     test_name: string;
+    category?: string;
     description: string;
     sql_query: string;
     severity: string;
@@ -313,7 +314,7 @@ export default function ResultsView() {
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                                         <span>{test.error_message || test.description}</span>
                                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                            {test.status === 'FAIL' && test.sample_data && (
+                                                            {test.status === 'FAIL' && test.sample_data && test.category !== 'smoke' && (
                                                                 <button
                                                                     onClick={() => {
                                                                         if (expandedData?.mappingIdx === activeTab && expandedData?.testIdx === testIdx) {
@@ -564,7 +565,7 @@ export default function ResultsView() {
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                                 <span>{test.error_message || test.description}</span>
                                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                    {test.status === 'FAIL' && (test as any).sample_data && (
+                                                    {test.status === 'FAIL' && (test as any).sample_data && test.category !== 'smoke' && (
                                                         <button
                                                             onClick={() => setExpandedSingleData(expandedSingleData === index ? null : index)}
                                                             style={{
