@@ -76,7 +76,7 @@ PREDEFINED_TESTS = {
         severity='HIGH',
         description='Verify the target table exists and is accessible',
         is_global=False,
-        generate_sql=lambda config: f"SELECT * FROM `{config['full_table_name']}` LIMIT 1"
+        generate_sql=lambda config: f"SELECT TRUE FROM `{config['full_table_name']}` LIMIT 1"
     ),
 
     # --- SCD1 Tests ---
