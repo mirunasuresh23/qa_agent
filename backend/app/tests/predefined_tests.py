@@ -82,37 +82,37 @@ PREDEFINED_TESTS = {
     # --- SCD1 Tests ---
     'scd1_primary_key_null': TestTemplate(
         test_id='scd1_primary_key_null',
-        name='Composite Primary Key NOT NULL',
+        name='Primary Key NOT NULL',
         category='completeness',
         severity='HIGH',
-        description='Check composite natural key for NULL values',
+        description='Check composite primary key for NULL values',
         is_global=False,
         generate_sql=lambda config: (
             f"""
             SELECT * FROM `{config['full_table_name']}`
-            WHERE ({' || '.join([f"IFNULL(SAFE_CAST({col} AS STRING), '')" for col in config['natural_keys']])}) = ''
+            WHERE ({' || '.join([f"SAFE_CAST({col} AS STRING)" for col in config['primary_keys']])}) IS NULL
             LIMIT 100
-            """ if config.get('natural_keys') else None
+            """ if config.get('primary_keys') else None
         )
     ),
 
     'scd1_primary_key_unique': TestTemplate(
         test_id='scd1_primary_key_unique',
-        name='Composite Primary Key Uniqueness',
+        name='Primary Key uniqueness',
         category='integrity',
         severity='HIGH',
-        description='Ensure composite natural key uniqueness',
+        description='Ensure composite primary key uniqueness',
         is_global=False,
         generate_sql=lambda config: (
             f"""
             SELECT 
-                ({' || '.join([f"IFNULL(SAFE_CAST({col} AS STRING), '')" for col in config['natural_keys']])}) as composite_key,
+                ({' || '.join([f"IFNULL(SAFE_CAST({col} AS STRING), '')" for col in config['primary_keys']])}) as primary_key,
                 COUNT(*) as duplicate_count
             FROM `{config['full_table_name']}`
             GROUP BY 1
             HAVING COUNT(*) > 1
             LIMIT 100
-            """ if config.get('natural_keys') else None
+            """ if config.get('primary_keys') else None
         )
     ),
 
@@ -122,14 +122,14 @@ PREDEFINED_TESTS = {
         name='Primary Key NOT NULL',
         category='completeness',
         severity='HIGH',
-        description='Check SCD2 natural key for NULL values',
+        description='Check SCD2 primary key for NULL values',
         is_global=False,
         generate_sql=lambda config: (
             f"""
             SELECT * FROM `{config['full_table_name']}`
-            WHERE ({' || '.join([f"IFNULL(SAFE_CAST({col} AS STRING), '')" for col in config['natural_keys']])}) = ''
+            WHERE ({' || '.join([f"SAFE_CAST({col} AS STRING)" for col in config['primary_keys']])}) IS NULL
             LIMIT 100
-            """ if config.get('natural_keys') else None
+            """ if config.get('primary_keys') else None
         )
     ),
 
@@ -165,16 +165,16 @@ PREDEFINED_TESTS = {
 
     'scd2_one_current_row': TestTemplate(
         test_id='scd2_one_current_row',
-        name='One current row per Natural Key',
+        name='One current row per Primary Key',
         category='integrity',
         severity='HIGH',
-        description='Ensure exactly one active record per natural key',
+        description='Ensure exactly one active record per primary key',
         is_global=False,
         generate_sql=lambda config: (
             f"""
-            SELECT {' , '.join(config['natural_keys'])}, COUNTIF(SAFE_CAST({config['active_flag_column']} AS STRING) IN ('true', 'TRUE', 'Y', '1')) as active_count
+            SELECT {' , '.join(config['primary_keys'])}, COUNTIF(SAFE_CAST({config['active_flag_column']} AS STRING) IN ('true', 'TRUE', 'Y', '1')) as active_count
             FROM `{config['full_table_name']}`
-            GROUP BY {' , '.join(config['natural_keys'])}
+            GROUP BY {' , '.join(config['primary_keys'])}
             HAVING active_count <> 1
             LIMIT 100
             """
@@ -227,16 +227,16 @@ PREDEFINED_TESTS = {
 
     'scd2_unique_begin_date': TestTemplate(
         test_id='scd2_unique_begin_date',
-        name='Unique begin datetime per Natural Key',
+        name='Unique begin datetime per Primary Key',
         category='integrity',
         severity='HIGH',
-        description='Ensure no natural key has multiple records starting at the same time',
+        description='Ensure no primary key has multiple records starting at the same time',
         is_global=False,
         generate_sql=lambda config: (
             f"""
-            SELECT {' , '.join(config['natural_keys'])}, {config['begin_date_column']}, COUNT(*)
+            SELECT {' , '.join(config['primary_keys'])}, {config['begin_date_column']}, COUNT(*)
             FROM `{config['full_table_name']}`
-            GROUP BY {' , '.join(config['natural_keys'])}, {config['begin_date_column']}
+            GROUP BY {' , '.join(config['primary_keys'])}, {config['begin_date_column']}
             HAVING COUNT(*) > 1
             LIMIT 100
             """
@@ -245,16 +245,16 @@ PREDEFINED_TESTS = {
 
     'scd2_unique_end_date': TestTemplate(
         test_id='scd2_unique_end_date',
-        name='Unique end datetime per Natural Key',
+        name='Unique end datetime per Primary Key',
         category='integrity',
         severity='HIGH',
-        description='Ensure no natural key has multiple records ending at the same time',
+        description='Ensure no primary key has multiple records ending at the same time',
         is_global=False,
         generate_sql=lambda config: (
             f"""
-            SELECT {' , '.join(config['natural_keys'])}, {config['end_date_column']}, COUNT(*)
+            SELECT {' , '.join(config['primary_keys'])}, {config['end_date_column']}, COUNT(*)
             FROM `{config['full_table_name']}`
-            GROUP BY {' , '.join(config['natural_keys'])}, {config['end_date_column']}
+            GROUP BY {' , '.join(config['primary_keys'])}, {config['end_date_column']}
             HAVING COUNT(*) > 1
             LIMIT 100
             """
@@ -273,7 +273,7 @@ PREDEFINED_TESTS = {
             WITH ordered_history AS (
                 SELECT 
                     *,
-                    LEAD({config['begin_date_column']}) OVER (PARTITION BY {' , '.join(config['natural_keys'])} ORDER BY {config['begin_date_column']}) as next_begin
+                    LEAD({config['begin_date_column']}) OVER (PARTITION BY {' , '.join(config['primary_keys'])} ORDER BY {config['begin_date_column']}) as next_begin
                 FROM `{config['full_table_name']}`
             )
             SELECT * FROM ordered_history
@@ -296,7 +296,7 @@ PREDEFINED_TESTS = {
             WITH history AS (
                 SELECT 
                     *,
-                    LEAD({config['begin_date_column']}) OVER (PARTITION BY {' , '.join(config['natural_keys'])} ORDER BY {config['begin_date_column']}) as next_begin
+                    LEAD({config['begin_date_column']}) OVER (PARTITION BY {' , '.join(config['primary_keys'])} ORDER BY {config['begin_date_column']}) as next_begin
                 FROM `{config['full_table_name']}`
             )
             SELECT * FROM history

@@ -212,7 +212,7 @@ class TestExecutor:
             # Prepare test configuration
             test_config = {
                 'full_table_name': full_table_name,
-                'natural_keys': mapping.get('natural_keys', []),
+                'primary_keys': mapping.get('primary_keys', []),
                 'surrogate_key': mapping.get('surrogate_key'),
                 'begin_date_column': mapping.get('begin_date_column', 'DWBeginEffDateTime'),
                 'end_date_column': mapping.get('end_date_column', 'DWEndEffDateTime'),
@@ -280,6 +280,53 @@ class TestExecutor:
                         error_message=str(e)
                     ))
             
+            # 6. Custom Business Rules
+            custom_tests = mapping.get('custom_tests', [])
+            if isinstance(custom_tests, str):
+                try:
+                    custom_tests = json.loads(custom_tests)
+                except:
+                    custom_tests = []
+            
+            for custom_test in (custom_tests or []):
+                test_name = custom_test.get('name') or custom_test.get('test_name', 'Unnamed Business Rule')
+                raw_sql = custom_test.get('sql') or custom_test.get('sql_query')
+                
+                if not raw_sql:
+                    continue
+                
+                # Replace template variables
+                sql = raw_sql.replace('{{target}}', f"`{full_table_name}`")
+                
+                try:
+                    rows = await bigquery_service.execute_query(sql)
+                    row_count = len(rows)
+                    
+                    predefined_results.append(TestResult(
+                        test_id=f"custom_{test_name.lower().replace(' ', '_')}",
+                        test_name=test_name,
+                        category='business_rule',
+                        description=custom_test.get('description', f"Custom business rule: {test_name}"),
+                        status='PASS' if row_count == 0 else 'FAIL',
+                        severity=custom_test.get('severity', 'HIGH'),
+                        sql_query=sql,
+                        rows_affected=row_count,
+                        sample_data=rows[:10] if row_count > 0 else None,
+                        error_message=None
+                    ))
+                except Exception as e:
+                    predefined_results.append(TestResult(
+                        test_id=f"custom_{test_name.lower().replace(' ', '_')}",
+                        test_name=test_name,
+                        category='business_rule',
+                        description=f"Error executing custom rule: {test_name}",
+                        status='ERROR',
+                        severity=custom_test.get('severity', 'HIGH'),
+                        sql_query=sql,
+                        rows_affected=0,
+                        error_message=str(e)
+                    ))
+            
             return MappingResult(
                 mapping_id=mapping_id,
                 predefined_results=predefined_results,
@@ -329,11 +376,12 @@ class TestExecutor:
                     'target_dataset': config['target_dataset'],
                     'target_table': config['target_table'],
                     'scd_type': config.get('scd_type', 'scd2'),
-                    'natural_keys': config.get('natural_keys', []),
+                    'primary_keys': config.get('primary_keys', []),
                     'surrogate_key': config.get('surrogate_key'),
                     'begin_date_column': config.get('begin_date_column'),
                     'end_date_column': config.get('end_date_column'),
-                    'active_flag_column': config.get('active_flag_column')
+                    'active_flag_column': config.get('active_flag_column'),
+                    'custom_tests': config.get('custom_tests')
                 }
                 mappings.append(mapping)
             

@@ -2,7 +2,7 @@
 
 ## 🚀 Overview
 The QA Agent now supports **SCD Type 1 and Type 2 Validation**. This feature validates the integrity of dimension tables by checking:
-- **SCD Type 1**: Natural key uniqueness and null checks
+- **SCD Type 1**: Primary Key uniqueness and null checks
 - **SCD Type 2**: Historical tracking validity (no overlaps, gaps, or invalid flags)
 
 ## 🛠️ What Was Implemented
@@ -21,10 +21,28 @@ The QA Agent now supports **SCD Type 1 and Type 2 Validation**. This feature val
 
 **File**: `backend/app/tests/predefined_tests.py`
 - Added 16 data quality test templates:
-  - **Structural/Smoke**: `table_exists` (Verify target table exists)
-  - **Surrogate Key Tests**: `surrogate_key_null`, `surrogate_key_unique`
-  - **SCD1 Tests**: `scd1_primary_key_null`, `scd1_primary_key_unique`
-  - **SCD2 Tests (11+4)**: `scd2_primary_key_null`, `scd2_begin_date_null`, `scd2_end_date_null`, `scd2_flag_null`, `scd2_one_current_row`, `scd2_current_date_check`, `scd2_continuity`, `scd2_invalid_flag_combination`, `scd2_date_order`, `scd2_unique_begin_date`, `scd2_unique_end_date`, `scd2_no_record_after_current`
+  - **SCD1 Validation Suite (5 Tests)**:
+    - ✅ Table exists (smoke)
+    - ✅ Primary Key NOT NULL
+    - ✅ Primary Key uniqueness
+    - ✅ Surrogate key NOT NULL
+    - ✅ Surrogate key uniqueness
+  - **SCD2 Validation Suite (15 Tests)**:
+    - ✅ Table exists (smoke)
+    - ✅ Primary Key NOT NULL
+    - ✅ Surrogate key NOT NULL
+    - ✅ Surrogate key uniqueness
+    - ✅ Begin effective datetime NOT NULL
+    - ✅ End effective datetime NOT NULL
+    - ✅ Current row flag NOT NULL
+    - ✅ One current row per Primary Key
+    - ✅ Current rows end on 2099-12-31
+    - ✅ No invalid current-row combinations
+    - ✅ Begin < End datetime
+    - ✅ Unique begin datetime per Primary Key
+    - ✅ Unique end datetime per Primary Key
+    - ✅ Continuous history (no gaps) (Using DATE_ADD with 1-second intervals)
+    - ✅ No record after current row
 
 ### Frontend Changes
 **File**: `src/components/Sidebar.tsx`
@@ -33,7 +51,7 @@ The QA Agent now supports **SCD Type 1 and Type 2 Validation**. This feature val
 **File**: `src/components/DashboardForm.tsx`
 - Added SCD-specific form fields:
   - SCD Type selector (Type 1 / Type 2)
-  - Natural Keys input (comma-separated)
+  - Primary Keys input (comma-separated)
   - Surrogate Key input (optional)
   - SCD2-specific fields: Begin Date Column, End Date Column, Active Flag Column
   - **New Feature**: "Add New Configuration" toggle allows adding new SCD tables to the configuration table directly from the UI
@@ -89,7 +107,7 @@ The results page now provides deep insight into test failures:
    - **Target Dataset**: `crown_scd_mock`
    - **Target Table**: `D_Seat_WD`
    - **SCD Type**: Select **Type 1**
-   - **Natural Keys**: `TableId, PositionIDX`
+   - **Primary Keys**: `TableId, PositionIDX`
    - **Surrogate Key** (optional): `DWSeatID`
 
 4. **Run Tests**:  
@@ -109,7 +127,7 @@ The results page now provides deep insight into test failures:
    - **Target Dataset**: `crown_scd_mock`
    - **Target Table**: `D_Employee_WD`
    - **SCD Type**: Select **Type 2**
-   - **Natural Keys**: `UserId`
+   - **Primary Keys**: `UserId`
    - **Surrogate Key** (optional): `DWEmployeeID`
    - **Begin Date Column**: `DWBeginEffDateTime` (default)
    - **End Date Column**: `DWEndEffDateTime` (default)
@@ -121,10 +139,10 @@ The results page now provides deep insight into test failures:
 3. **Expected Results**:
    - ✅ **PASS**: `scd2_begin_date_null`, `scd2_end_date_null`, `scd2_flag_null` (no nulls)
    - ✅ **PASS**: `surrogate_key_null`, `surrogate_key_unique`
-   - ❌ **FAIL**: `scd2_continuity` - Should detect **UserId='U2'** (overlap) and **UserId='U5'** (gap)
-   - ❌ **FAIL**: `scd2_one_current_row` - Should detect **UserId='U3'** (has 2 rows with DWCurrentRowFlag='Y')
-   - ❌ **FAIL**: `scd2_date_order` - Should detect **UserId='U4'** (Begin Date > End Date)
-   - ❌ **FAIL**: `scd2_current_date_check` - Should detect **UserId='U4'** (active flag 'Y' but end date not 2099)
+   - ❌ **FAIL**: `scd2_continuity` - Should detect **Primary Key='U2'** (overlap) and **Primary Key='U5'** (gap)
+   - ❌ **FAIL**: `scd2_one_current_row` - Should detect **Primary Key='U3'** (has 2 rows with DWCurrentRowFlag='Y')
+   - ❌ **FAIL**: `scd2_date_order` - Should detect **Primary Key='U4'** (Begin Date > End Date)
+   - ❌ **FAIL**: `scd2_current_date_check` - Should detect **Primary Key='U4'** (active flag 'Y' but end date not 2099)
 
 ### Step 4: Add New Configuration (New Feature)
 
@@ -135,7 +153,7 @@ The results page now provides deep insight into test failures:
    - **Config ID**: `temp_test_config`
    - **Target Dataset**: `crown_scd_mock`
    - **Target Table**: `D_Seat_WD` (reusing for demo)
-   - **Natural Keys**: `TableId`
+   - **Primary Keys**: `TableId`
    - **Description**: `Temporary test config added from UI`
 
 3. **Click "Add Configuration"**:
@@ -172,9 +190,9 @@ The results page now provides deep insight into test failures:
 | TableId | PositionIDX | PositionCode | DWSeatID | Issue |
 |---------|-------------|--------------|----------|-------|
 | 101 | 1 | P1 | 1001 | ✅ Valid |
-| 101 | 1 | P1_DUPE | 1002 | ❌ Duplicate natural key |
+| 101 | 1 | P1_DUPE | 1002 | ❌ Duplicate primary key |
 | 102 | 2 | P2 | 1003 | ✅ Valid |
-| 103 | NULL | P3 | 1004 | ❌ NULL in natural key |
+| 103 | NULL | P3 | 1004 | ❌ NULL in primary key |
 
 ### SCD2 Mock Table (`crown_scd_mock.D_Employee_WD`)
 | UserId | UserName | Begin Date | End Date | Flag | Issue |

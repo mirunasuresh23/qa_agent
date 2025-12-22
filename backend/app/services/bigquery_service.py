@@ -187,12 +187,13 @@ class BigQueryService:
                 target_dataset,
                 target_table,
                 scd_type,
-                natural_keys,
+                primary_keys,
                 surrogate_key,
                 begin_date_column,
                 end_date_column,
                 active_flag_column,
-                description
+                description,
+                custom_tests
             FROM `{project_id}.{config_dataset}.{config_table}`
         """
         return await self.execute_query(query)
@@ -227,12 +228,13 @@ class BigQueryService:
                 "target_dataset": config_data.get("target_dataset"),
                 "target_table": config_data.get("target_table"),
                 "scd_type": config_data.get("scd_type"),
-                "natural_keys": config_data.get("natural_keys", []),
+                "primary_keys": config_data.get("primary_keys", []),
                 "surrogate_key": config_data.get("surrogate_key"),
                 "begin_date_column": config_data.get("begin_date_column"),
                 "end_date_column": config_data.get("end_date_column"),
                 "active_flag_column": config_data.get("active_flag_column"),
-                "description": config_data.get("description", "")
+                "description": config_data.get("description", ""),
+                "custom_tests": config_data.get("custom_tests")
             }
             
             # Insert into BigQuery

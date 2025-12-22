@@ -25,8 +25,8 @@ scd1_schema = [
 
 # Data contains:
 # - Normal row
-# - Duplicate Natural Keys (TableId, PositionIDX) -> Error
-# - Null Natural Key -> Error
+# - Duplicate Primary Keys (TableId, PositionIDX) -> Error
+# - Null Primary Key -> Error
 scd1_data = [
     {"TableId": 101, "PositionIDX": 1, "PositionCode": "P1", "PositionLabel": "Label 1", "DWSeatID": 1001, "UpdateTimestamp": "2024-01-01T00:00:00Z"},
     {"TableId": 101, "PositionIDX": 1, "PositionCode": "P1_DUPE", "PositionLabel": "Label 1 Dupe", "DWSeatID": 1002, "UpdateTimestamp": "2024-01-02T00:00:00Z"},

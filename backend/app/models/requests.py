@@ -25,11 +25,12 @@ class GenerateTestsRequest(BaseModel):
     
     # SCD validation fields
     scd_type: Optional[str] = Field(None, description="SCD type: 'scd1' or 'scd2'")
-    natural_keys: Optional[List[str]] = Field(None, description="Natural key columns")
+    primary_keys: Optional[List[str]] = Field(None, description="Primary key columns")
     surrogate_key: Optional[str] = Field(None, description="Surrogate key column")
     begin_date_column: Optional[str] = Field(None, description="Effect beginning date column (SCD2)")
     end_date_column: Optional[str] = Field(None, description="Effect ending date column (SCD2)")
     active_flag_column: Optional[str] = Field(None, description="Active row flag column (SCD2)")
+    custom_tests: Optional[List[Dict[str, str]]] = Field(None, description="List of custom business rules (name/sql)")
     
     # Common optional fields
     enabled_test_ids: Optional[List[str]] = Field(None, description="List of test IDs to enable")
@@ -97,10 +98,11 @@ class AddSCDConfigRequest(BaseModel):
     target_dataset: str = Field(..., description="Target dataset containing the SCD table")
     target_table: str = Field(..., description="Target table name")
     scd_type: str = Field(..., description="SCD type: 'scd1' or 'scd2'")
-    natural_keys: List[str] = Field(..., description="Natural key columns")
+    primary_keys: List[str] = Field(..., description="Primary key columns")
     surrogate_key: Optional[str] = Field(None, description="Surrogate key column")
     begin_date_column: Optional[str] = Field(None, description="Begin date column (SCD2)")
     end_date_column: Optional[str] = Field(None, description="End date column (SCD2)")
     active_flag_column: Optional[str] = Field(None, description="Active flag column (SCD2)")
     description: Optional[str] = Field("", description="Configuration description")
+    custom_tests: Optional[List[Dict[str, str]]] = Field(None, description="List of custom business rules (name/sql)")
 

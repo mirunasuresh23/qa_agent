@@ -18,9 +18,9 @@ CREATE OR REPLACE TABLE `leyin-sandpit.crown_scd_mock.D_Seat_WD` (
 INSERT INTO `leyin-sandpit.crown_scd_mock.D_Seat_WD` (TableId, PositionIDX, PositionCode, PositionLabel, DWSeatID, UpdateTimestamp)
 VALUES
     (101, 1, 'P1', 'Label 1', 1001, '2024-01-01 00:00:00'),
-    (101, 1, 'P1_DUPE', 'Label 1 Dupe', 1002, '2024-01-02 00:00:00'), -- DUPLICATE NATURAL KEY (101, 1)
+    (101, 1, 'P1_DUPE', 'Label 1 Dupe', 1002, '2024-01-02 00:00:00'), -- DUPLICATE PRIMARY KEY (101, 1)
     (102, 2, 'P2', 'Label 2', 1003, '2024-01-01 00:00:00'),
-    (103, CAST(NULL AS INT64), 'P3', 'Label 3', 1004, '2024-01-01 00:00:00'); -- NULL NATURAL KEY
+    (103, CAST(NULL AS INT64), 'P3', 'Label 3', 1004, '2024-01-01 00:00:00'); -- NULL PRIMARY KEY
 
 -- 3. Setup SCD2 Mock Table
 CREATE OR REPLACE TABLE `leyin-sandpit.crown_scd_mock.D_Employee_WD` (
@@ -59,15 +59,16 @@ CREATE OR REPLACE TABLE `leyin-sandpit.transform_config.scd_validation_config` (
     target_dataset STRING NOT NULL,
     target_table STRING NOT NULL,
     scd_type STRING NOT NULL,
-    natural_keys ARRAY<STRING>,
+    primary_keys ARRAY<STRING>,
     surrogate_key STRING,
     begin_date_column STRING,
     end_date_column STRING,
     active_flag_column STRING,
-    description STRING
+    description STRING,
+    custom_tests JSON
 );
 
-INSERT INTO `leyin-sandpit.transform_config.scd_validation_config` (config_id, target_dataset, target_table, scd_type, natural_keys, surrogate_key, begin_date_column, end_date_column, active_flag_column, description)
+INSERT INTO `leyin-sandpit.transform_config.scd_validation_config` (config_id, target_dataset, target_table, scd_type, primary_keys, surrogate_key, begin_date_column, end_date_column, active_flag_column, description)
 VALUES
     ('seat_scd1', 'crown_scd_mock', 'D_Seat_WD', 'scd1', ['TableId', 'PositionIDX'], 'DWSeatID', NULL, NULL, NULL, 'SCD1 Mock for Gaming Seats (Test Data)'),
     ('employee_scd2', 'crown_scd_mock', 'D_Employee_WD', 'scd2', ['UserId'], 'DWEmployeeID', 'DWBeginEffDateTime', 'DWEndEffDateTime', 'DWCurrentRowFlag', 'SCD2 Mock for Employees (Test Data)');

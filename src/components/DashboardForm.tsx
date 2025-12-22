@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import HistoryList from "./HistoryList";
 
@@ -9,7 +9,12 @@ type FileFormat = 'csv' | 'json' | 'parquet' | 'avro';
 type GCSMode = 'single' | 'config';
 type SCDMode = 'direct' | 'config';
 
-// ... types remain ...
+interface CustomTest {
+    name: string;
+    sql: string;
+    description: string;
+    severity: string;
+}
 
 interface DashboardFormProps {
     comparisonMode: ComparisonMode;
@@ -47,11 +52,12 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
     // SCD mode state
     const [scdMode, setScdMode] = useState<SCDMode>('direct');
     const [scdType, setScdType] = useState<'scd1' | 'scd2'>('scd2');
-    const [naturalKeys, setNaturalKeys] = useState("");
+    const [primaryKeys, setPrimaryKeys] = useState("");
     const [surrogateKey, setSurrogateKey] = useState("");
     const [beginDateColumn, setBeginDateColumn] = useState("DWBeginEffDateTime");
     const [endDateColumn, setEndDateColumn] = useState("DWEndEffDateTime");
     const [activeFlagColumn, setActiveFlagColumn] = useState("DWCurrentRowFlag");
+    const [customTests, setCustomTests] = useState<CustomTest[]>([]);
 
     // New config form state
     const [showAddConfig, setShowAddConfig] = useState(false);
@@ -59,12 +65,13 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
     const [newTargetDataset, setNewTargetDataset] = useState("");
     const [newTargetTable, setNewTargetTable] = useState("");
     const [newScdType, setNewScdType] = useState<'scd1' | 'scd2'>('scd2');
-    const [newNaturalKeys, setNewNaturalKeys] = useState("");
+    const [newPrimaryKeys, setNewPrimaryKeys] = useState("");
     const [newSurrogateKey, setNewSurrogateKey] = useState("");
     const [newBeginDateColumn, setNewBeginDateColumn] = useState("DWBeginEffDateTime");
     const [newEndDateColumn, setNewEndDateColumn] = useState("DWEndEffDateTime");
     const [newActiveFlagColumn, setNewActiveFlagColumn] = useState("DWCurrentRowFlag");
     const [newDescription, setNewDescription] = useState("");
+    const [newCustomTests, setNewCustomTests] = useState<CustomTest[]>([]);
 
     const addDataset = () => setDatasets([...datasets, '']);
 
@@ -77,6 +84,35 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
         const newDatasets = [...datasets];
         newDatasets[index] = value;
         setDatasets(newDatasets);
+    };
+
+    const addCustomTest = (isNewConfig: boolean) => {
+        const emptyTest: CustomTest = { name: "", sql: "", description: "", severity: "HIGH" };
+        if (isNewConfig) {
+            setNewCustomTests([...newCustomTests, emptyTest]);
+        } else {
+            setCustomTests([...customTests, emptyTest]);
+        }
+    };
+
+    const removeCustomTest = (index: number, isNewConfig: boolean) => {
+        if (isNewConfig) {
+            setNewCustomTests(newCustomTests.filter((_, i) => i !== index));
+        } else {
+            setCustomTests(customTests.filter((_, i) => i !== index));
+        }
+    };
+
+    const handleCustomTestChange = (index: number, field: keyof CustomTest, value: string, isNewConfig: boolean) => {
+        if (isNewConfig) {
+            const updated = [...newCustomTests];
+            updated[index] = { ...updated[index], [field]: value };
+            setNewCustomTests(updated);
+        } else {
+            const updated = [...customTests];
+            updated[index] = { ...updated[index], [field]: value };
+            setCustomTests(updated);
+        }
     };
 
     const handleViewResult = (details: any) => {
@@ -145,19 +181,20 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                 }
             } else if (comparisonMode === 'scd') {
                 if (scdMode === 'direct') {
-                    if (!targetDataset || !targetTable || !naturalKeys) {
-                        throw new Error("Target dataset, table, and natural keys are required for SCD validation.");
+                    if (!targetDataset || !targetTable || !primaryKeys) {
+                        throw new Error("Target dataset, table, and primary keys are required for SCD validation.");
                     }
                     payload = {
                         ...payload,
                         target_dataset: targetDataset,
                         target_table: targetTable,
                         scd_type: scdType,
-                        natural_keys: naturalKeys.split(',').map(k => k.trim()),
+                        primary_keys: primaryKeys.split(',').map(k => k.trim()),
                         surrogate_key: surrogateKey || undefined,
                         begin_date_column: scdType === 'scd2' ? beginDateColumn : undefined,
                         end_date_column: scdType === 'scd2' ? endDateColumn : undefined,
-                        active_flag_column: scdType === 'scd2' ? activeFlagColumn : undefined
+                        active_flag_column: scdType === 'scd2' ? activeFlagColumn : undefined,
+                        custom_tests: customTests.length > 0 ? customTests : undefined
                     };
                 } else if (scdMode === 'config') {
                     payload = {
@@ -196,8 +233,8 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
 
     const handleAddConfig = async () => {
         try {
-            if (!newConfigId || !newTargetDataset || !newTargetTable || !newNaturalKeys) {
-                alert("Please fill in all required fields (Config ID, Dataset, Table, Natural Keys)");
+            if (!newConfigId || !newTargetDataset || !newTargetTable || !newPrimaryKeys) {
+                alert("Please fill in all required fields (Config ID, Dataset, Table, Primary Keys)");
                 return;
             }
 
@@ -212,12 +249,13 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                 target_dataset: newTargetDataset,
                 target_table: newTargetTable,
                 scd_type: newScdType,
-                natural_keys: newNaturalKeys.split(',').map(k => k.trim()),
+                primary_keys: newPrimaryKeys.split(',').map(k => k.trim()),
                 surrogate_key: newSurrogateKey || null,
                 begin_date_column: newScdType === 'scd2' ? newBeginDateColumn : null,
                 end_date_column: newScdType === 'scd2' ? newEndDateColumn : null,
                 active_flag_column: newScdType === 'scd2' ? newActiveFlagColumn : null,
-                description: newDescription
+                description: newDescription,
+                custom_tests: newCustomTests.length > 0 ? newCustomTests : null
             };
 
             const response = await fetch(endpoint, {
@@ -240,7 +278,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
             setNewConfigId("");
             setNewTargetDataset("");
             setNewTargetTable("");
-            setNewNaturalKeys("");
+            setNewPrimaryKeys("");
             setNewSurrogateKey("");
             setNewDescription("");
 
@@ -278,7 +316,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                     type="text"
                     className="input"
                     value={projectId}
-                    onChange={(e) => setProjectId(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProjectId(e.target.value)}
                     required
                     placeholder="Project with BigQuery data (e.g., miruna-sandpit)"
                 />
@@ -331,7 +369,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                 type="text"
                                                 className="input"
                                                 value={dataset}
-                                                onChange={(e) => handleDatasetChange(index, e.target.value)}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDatasetChange(index, e.target.value)}
                                                 placeholder={`Dataset ${index + 1} (e.g., ecommerce_data)`}
                                                 style={{ flex: 1, marginBottom: 0 }}
                                             />
@@ -351,8 +389,8 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                         transition: 'all 0.2s ease',
                                                         minWidth: '80px'
                                                     }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                    onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.transform = 'scale(1.05)')}
+                                                    onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.transform = 'scale(1)')}
                                                 >
                                                     Remove
                                                 </button>
@@ -377,11 +415,11 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                         width: '100%',
                                         transition: 'all 0.2s ease'
                                     }}
-                                    onMouseEnter={(e) => {
+                                    onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
                                         e.currentTarget.style.background = 'var(--primary)';
                                         e.currentTarget.style.color = 'white';
                                     }}
-                                    onMouseLeave={(e) => {
+                                    onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
                                         e.currentTarget.style.background = 'var(--secondary)';
                                         e.currentTarget.style.color = 'var(--primary)';
                                     }}
@@ -401,7 +439,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                     id="erdDescription"
                                     className="input"
                                     value={erdDescription}
-                                    onChange={(e) => setErdDescription(e.target.value)}
+                                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setErdDescription(e.target.value)}
                                     required
                                     placeholder="Describe your table relationships, primary keys, foreign keys, and expected data constraints..."
                                     rows={8}
@@ -477,7 +515,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                             type="text"
                                             className="input"
                                             value={configDataset}
-                                            onChange={(e) => setConfigDataset(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfigDataset(e.target.value)}
                                             required
                                             placeholder="e.g., config"
                                         />
@@ -494,7 +532,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                             type="text"
                                             className="input"
                                             value={configTable}
-                                            onChange={(e) => setConfigTable(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfigTable(e.target.value)}
                                             required
                                             placeholder="e.g., data_load_config"
                                         />
@@ -520,7 +558,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                             type="text"
                                             className="input"
                                             value={gcsBucket}
-                                            onChange={(e) => setGcsBucket(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGcsBucket(e.target.value)}
                                             required
                                             placeholder="e.g., my-data-bucket"
                                         />
@@ -538,7 +576,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                             type="text"
                                             className="input"
                                             value={gcsFilePath}
-                                            onChange={(e) => setGcsFilePath(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGcsFilePath(e.target.value)}
                                             required
                                             placeholder="e.g., raw/customers_2024.csv or data/*.csv"
                                         />
@@ -558,7 +596,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                             id="fileFormat"
                                             className="input"
                                             value={fileFormat}
-                                            onChange={(e) => setFileFormat(e.target.value as FileFormat)}
+                                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFileFormat(e.target.value as FileFormat)}
                                             required
                                             style={{ cursor: 'pointer' }}
                                         >
@@ -581,7 +619,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                             type="text"
                                             className="input"
                                             value={targetDataset}
-                                            onChange={(e) => setTargetDataset(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTargetDataset(e.target.value)}
                                             required
                                             placeholder="e.g., analytics"
                                         />
@@ -599,7 +637,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                             type="text"
                                             className="input"
                                             value={targetTable}
-                                            onChange={(e) => setTargetTable(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTargetTable(e.target.value)}
                                             required
                                             placeholder="e.g., customers"
                                         />
@@ -616,7 +654,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                             id="erdDescriptionGcs"
                                             className="input"
                                             value={erdDescription}
-                                            onChange={(e) => setErdDescription(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setErdDescription(e.target.value)}
                                             placeholder="Describe expected schema, data types, and constraints..."
                                             rows={6}
                                             style={{
@@ -693,7 +731,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                             type="text"
                                             className="input"
                                             value={configDataset}
-                                            onChange={(e) => setConfigDataset(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfigDataset(e.target.value)}
                                             required
                                             placeholder="e.g., transform_config"
                                         />
@@ -710,7 +748,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                             type="text"
                                             className="input"
                                             value={configTable}
-                                            onChange={(e) => setConfigTable(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfigTable(e.target.value)}
                                             required
                                             placeholder="e.g., scd_validation_config"
                                         />
@@ -759,7 +797,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                     type="text"
                                                     className="input"
                                                     value={newConfigId}
-                                                    onChange={(e) => setNewConfigId(e.target.value)}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewConfigId(e.target.value)}
                                                     placeholder="e.g., my_table_scd2"
                                                 />
                                             </div>
@@ -773,7 +811,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                         type="text"
                                                         className="input"
                                                         value={newTargetDataset}
-                                                        onChange={(e) => setNewTargetDataset(e.target.value)}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTargetDataset(e.target.value)}
                                                         placeholder="e.g., DW_Dimensions"
                                                     />
                                                 </div>
@@ -784,7 +822,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                         type="text"
                                                         className="input"
                                                         value={newTargetTable}
-                                                        onChange={(e) => setNewTargetTable(e.target.value)}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTargetTable(e.target.value)}
                                                         placeholder="e.g., D_MyTable_WD"
                                                     />
                                                 </div>
@@ -829,15 +867,15 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                 </div>
                                             </div>
 
-                                            {/* Natural Keys */}
+                                            {/* Primary Keys */}
                                             <div style={{ marginBottom: '1rem' }}>
-                                                <label className="label" htmlFor="newNaturalKeys">Natural Keys *</label>
+                                                <label className="label" htmlFor="newPrimaryKeys">Primary Keys *</label>
                                                 <input
-                                                    id="newNaturalKeys"
+                                                    id="newPrimaryKeys"
                                                     type="text"
                                                     className="input"
-                                                    value={newNaturalKeys}
-                                                    onChange={(e) => setNewNaturalKeys(e.target.value)}
+                                                    value={newPrimaryKeys}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPrimaryKeys(e.target.value)}
                                                     placeholder="e.g., UserId (comma-separated for composite)"
                                                 />
                                             </div>
@@ -850,7 +888,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                     type="text"
                                                     className="input"
                                                     value={newSurrogateKey}
-                                                    onChange={(e) => setNewSurrogateKey(e.target.value)}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSurrogateKey(e.target.value)}
                                                     placeholder="e.g., DWMyTableID"
                                                 />
                                             </div>
@@ -867,7 +905,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                                 type="text"
                                                                 className="input"
                                                                 value={newBeginDateColumn}
-                                                                onChange={(e) => setNewBeginDateColumn(e.target.value)}
+                                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewBeginDateColumn(e.target.value)}
                                                                 placeholder="DWBeginEffDateTime"
                                                             />
                                                         </div>
@@ -878,7 +916,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                                 type="text"
                                                                 className="input"
                                                                 value={newEndDateColumn}
-                                                                onChange={(e) => setNewEndDateColumn(e.target.value)}
+                                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewEndDateColumn(e.target.value)}
                                                                 placeholder="DWEndEffDateTime"
                                                             />
                                                         </div>
@@ -889,7 +927,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                                 type="text"
                                                                 className="input"
                                                                 value={newActiveFlagColumn}
-                                                                onChange={(e) => setNewActiveFlagColumn(e.target.value)}
+                                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewActiveFlagColumn(e.target.value)}
                                                                 placeholder="DWCurrentRowFlag"
                                                             />
                                                         </div>
@@ -905,9 +943,110 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                     type="text"
                                                     className="input"
                                                     value={newDescription}
-                                                    onChange={(e) => setNewDescription(e.target.value)}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewDescription(e.target.value)}
                                                     placeholder="e.g., Customer dimension table"
                                                 />
+                                            </div>
+
+                                            {/* Custom Business Rules */}
+                                            <div style={{ marginBottom: '1.5rem' }}>
+                                                <label className="label">
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        🛠️ Custom Business Rules
+                                                    </span>
+                                                </label>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                                    {newCustomTests.map((test, index) => (
+                                                        <div key={index} style={{
+                                                            padding: '1rem',
+                                                            background: 'var(--background)',
+                                                            borderRadius: 'var(--radius)',
+                                                            border: '1px solid var(--border)',
+                                                            position: 'relative'
+                                                        }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeCustomTest(index, true)}
+                                                                style={{
+                                                                    position: 'absolute',
+                                                                    top: '0.5rem',
+                                                                    right: '0.5rem',
+                                                                    background: 'none',
+                                                                    border: 'none',
+                                                                    color: 'var(--error)',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '1.25rem'
+                                                                }}
+                                                            >
+                                                                ×
+                                                            </button>
+                                                            <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
+                                                                <div style={{ flex: 1 }}>
+                                                                    <label className="label" style={{ fontSize: '0.75rem' }}>Rule Name</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        className="input"
+                                                                        value={test.name}
+                                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomTestChange(index, 'name', e.target.value, true)}
+                                                                        placeholder="e.g., CreatedDtm NOT NULL"
+                                                                        style={{ marginBottom: 0 }}
+                                                                    />
+                                                                </div>
+                                                                <div style={{ width: '120px' }}>
+                                                                    <label className="label" style={{ fontSize: '0.75rem' }}>Severity</label>
+                                                                    <select
+                                                                        className="input"
+                                                                        value={test.severity}
+                                                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleCustomTestChange(index, 'severity', e.target.value, true)}
+                                                                        style={{ marginBottom: 0, padding: '0.55rem' }}
+                                                                    >
+                                                                        <option value="HIGH">HIGH</option>
+                                                                        <option value="MEDIUM">MEDIUM</option>
+                                                                        <option value="LOW">LOW</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ marginBottom: '0.75rem' }}>
+                                                                <label className="label" style={{ fontSize: '0.75rem' }}>Description</label>
+                                                                <input
+                                                                    type="text"
+                                                                    className="input"
+                                                                    value={test.description}
+                                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomTestChange(index, 'description', e.target.value, true)}
+                                                                    placeholder="Describe the purpose of this rule..."
+                                                                    style={{ marginBottom: 0 }}
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="label" style={{ fontSize: '0.75rem' }}>SQL Query (Use {'{{target}}'} for table name)</label>
+                                                                <textarea
+                                                                    className="input"
+                                                                    value={test.sql}
+                                                                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleCustomTestChange(index, 'sql', e.target.value, true)}
+                                                                    placeholder="SELECT COUNT(0) = 0 FROM {{target}} WHERE CreatedDtm IS NULL"
+                                                                    rows={3}
+                                                                    style={{ marginBottom: 0, resize: 'vertical', fontFamily: 'monospace' }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => addCustomTest(true)}
+                                                        style={{
+                                                            padding: '0.5rem',
+                                                            background: 'none',
+                                                            border: '2px dashed var(--primary)',
+                                                            color: 'var(--primary)',
+                                                            borderRadius: 'var(--radius)',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '600',
+                                                            fontSize: '0.875rem'
+                                                        }}
+                                                    >
+                                                        + Add Business Rule
+                                                    </button>
+                                                </div>
                                             </div>
 
                                             {/* Save Button */}
@@ -949,7 +1088,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                 type="text"
                                                 className="input"
                                                 value={targetDataset}
-                                                onChange={(e) => setTargetDataset(e.target.value)}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTargetDataset(e.target.value)}
                                                 required
                                                 placeholder="e.g., DW_Dimensions"
                                             />
@@ -965,7 +1104,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                 type="text"
                                                 className="input"
                                                 value={targetTable}
-                                                onChange={(e) => setTargetTable(e.target.value)}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTargetTable(e.target.value)}
                                                 required
                                                 placeholder="e.g., D_Employee_WD"
                                             />
@@ -1013,24 +1152,24 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                         </div>
                                     </div>
 
-                                    {/* Natural Keys */}
+                                    {/* Primary Keys */}
                                     <div style={{ marginBottom: '1.75rem' }}>
-                                        <label className="label" htmlFor="naturalKeys">
+                                        <label className="label" htmlFor="primaryKeys">
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                🔑 Natural Keys
+                                                🔑 Primary Keys
                                             </span>
                                         </label>
                                         <input
-                                            id="naturalKeys"
+                                            id="primaryKeys"
                                             type="text"
                                             className="input"
-                                            value={naturalKeys}
-                                            onChange={(e) => setNaturalKeys(e.target.value)}
+                                            value={primaryKeys}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPrimaryKeys(e.target.value)}
                                             required
                                             placeholder="e.g., UserId (comma separate for composite)"
                                         />
                                         <p style={{ fontSize: '0.8125rem', color: 'var(--secondary-foreground)', marginTop: '0.5rem', fontStyle: 'italic' }}>
-                                            💡 Columns used to track unique business entities
+                                            💡 Primary business identifier(s) used for comparison
                                         </p>
                                     </div>
 
@@ -1046,7 +1185,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                             type="text"
                                             className="input"
                                             value={surrogateKey}
-                                            onChange={(e) => setSurrogateKey(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSurrogateKey(e.target.value)}
                                             placeholder="e.g., DWEmployeeID"
                                         />
                                     </div>
@@ -1070,7 +1209,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                         type="text"
                                                         className="input"
                                                         value={beginDateColumn}
-                                                        onChange={(e) => setBeginDateColumn(e.target.value)}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBeginDateColumn(e.target.value)}
                                                         placeholder="DWBeginEffDateTime"
                                                     />
                                                 </div>
@@ -1081,7 +1220,7 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                         type="text"
                                                         className="input"
                                                         value={endDateColumn}
-                                                        onChange={(e) => setEndDateColumn(e.target.value)}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEndDateColumn(e.target.value)}
                                                         placeholder="DWEndEffDateTime"
                                                     />
                                                 </div>
@@ -1092,13 +1231,114 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                                                         type="text"
                                                         className="input"
                                                         value={activeFlagColumn}
-                                                        onChange={(e) => setActiveFlagColumn(e.target.value)}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setActiveFlagColumn(e.target.value)}
                                                         placeholder="DWCurrentRowFlag"
                                                     />
                                                 </div>
                                             </div>
                                         </div>
                                     )}
+
+                                    {/* Custom Business Rules (Direct Mode) */}
+                                    <div style={{ marginBottom: '1.75rem' }}>
+                                        <label className="label">
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                🛠️ Custom Business Rules
+                                            </span>
+                                        </label>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            {customTests.map((test, index) => (
+                                                <div key={index} style={{
+                                                    padding: '1rem',
+                                                    background: 'var(--secondary)',
+                                                    borderRadius: 'var(--radius)',
+                                                    border: '1px solid var(--border)',
+                                                    position: 'relative'
+                                                }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeCustomTest(index, false)}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '0.5rem',
+                                                            right: '0.5rem',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: 'var(--error)',
+                                                            cursor: 'pointer',
+                                                            fontSize: '1.25rem'
+                                                        }}
+                                                    >
+                                                        ×
+                                                    </button>
+                                                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
+                                                        <div style={{ flex: 1 }}>
+                                                            <label className="label" style={{ fontSize: '0.75rem' }}>Rule Name</label>
+                                                            <input
+                                                                type="text"
+                                                                className="input"
+                                                                value={test.name}
+                                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomTestChange(index, 'name', e.target.value, false)}
+                                                                placeholder="e.g., CreatedDtm NOT NULL"
+                                                                style={{ marginBottom: 0 }}
+                                                            />
+                                                        </div>
+                                                        <div style={{ width: '120px' }}>
+                                                            <label className="label" style={{ fontSize: '0.75rem' }}>Severity</label>
+                                                            <select
+                                                                className="input"
+                                                                value={test.severity}
+                                                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleCustomTestChange(index, 'severity', e.target.value, false)}
+                                                                style={{ marginBottom: 0, padding: '0.55rem' }}
+                                                            >
+                                                                <option value="HIGH">HIGH</option>
+                                                                <option value="MEDIUM">MEDIUM</option>
+                                                                <option value="LOW">LOW</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ marginBottom: '0.75rem' }}>
+                                                        <label className="label" style={{ fontSize: '0.75rem' }}>Description</label>
+                                                        <input
+                                                            type="text"
+                                                            className="input"
+                                                            value={test.description}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomTestChange(index, 'description', e.target.value, false)}
+                                                            placeholder="Describe the purpose of this rule..."
+                                                            style={{ marginBottom: 0 }}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="label" style={{ fontSize: '0.75rem' }}>SQL Query (Use {'{{target}}'} for table name)</label>
+                                                        <textarea
+                                                            className="input"
+                                                            value={test.sql}
+                                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleCustomTestChange(index, 'sql', e.target.value, false)}
+                                                            placeholder="SELECT COUNT(0) = 0 FROM {{target}} WHERE CreatedDtm IS NULL"
+                                                            rows={3}
+                                                            style={{ marginBottom: 0, resize: 'vertical', fontFamily: 'monospace' }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            <button
+                                                type="button"
+                                                onClick={() => addCustomTest(false)}
+                                                style={{
+                                                    padding: '0.5rem',
+                                                    background: 'none',
+                                                    border: '2px dashed var(--primary)',
+                                                    color: 'var(--primary)',
+                                                    borderRadius: 'var(--radius)',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '600',
+                                                    fontSize: '0.875rem'
+                                                }}
+                                            >
+                                                + Add Business Rule
+                                            </button>
+                                        </div>
+                                    </div>
                                 </>
                             )}
                         </>
