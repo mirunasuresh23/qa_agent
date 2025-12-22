@@ -281,14 +281,14 @@ export default function ResultsView() {
 
                         {/* Test Results Table */}
                         <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                                 <thead>
                                     <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                                        <th style={{ padding: '0.75rem', textAlign: 'left' }}>Test Name</th>
-                                        <th style={{ padding: '0.75rem', textAlign: 'left' }}>Status</th>
-                                        <th style={{ padding: '0.75rem', textAlign: 'left' }}>Severity</th>
-                                        <th style={{ padding: '0.75rem', textAlign: 'left' }}>Affected</th>
-                                        <th style={{ padding: '0.75rem', textAlign: 'left' }}>Details</th>
+                                        <th style={{ padding: '0.75rem', textAlign: 'left', width: '15%' }}>Test Name</th>
+                                        <th style={{ padding: '0.75rem', textAlign: 'left', width: '10%' }}>Status</th>
+                                        <th style={{ padding: '0.75rem', textAlign: 'left', width: '10%' }}>Severity</th>
+                                        <th style={{ padding: '0.75rem', textAlign: 'left', width: '8%' }}>Affected</th>
+                                        <th style={{ padding: '0.75rem', textAlign: 'left', width: '57%' }}>Details</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -361,7 +361,7 @@ export default function ResultsView() {
                                                         </div>
                                                     </div>
 
-                                                    {test.sample_data && test.sample_data.length > 0 && (
+                                                    {test.status === 'FAIL' && test.sample_data && test.sample_data.length > 0 && (
                                                         <>
                                                             <div style={{ fontWeight: '700', color: '#1d4ed8', marginBottom: '0.5rem', fontSize: '0.75rem' }}>
                                                                 Sample problematic rows (max 10):
