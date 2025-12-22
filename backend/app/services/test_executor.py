@@ -287,6 +287,85 @@ class TestExecutor:
                 error=str(e)
             )
 
+    async def process_scd_config_table(
+        self,
+        project_id: str,
+        config_dataset: str,
+        config_table: str
+    ) -> Dict[str, Any]:
+        ""``
+        Process all SCD validations from a config table.
+        
+        Args:
+            project_id: Google Cloud project ID
+            config_dataset: Config table dataset
+            config_table: Config table name
+            
+        Returns:
+            Dictionary with summary and results by mapping
+        ""``
+        try:
+            # Read SCD config table
+            scd_configs = await bigquery_service.read_scd_config_table(
+                project_id, config_dataset, config_table
+            )
+            
+            if not scd_configs:
+                raise ValueError("No SCD configurations found in config table")
+            
+            # Convert configs to mapping format for process_scd
+            mappings = []
+            for config in scd_configs:
+                mapping = {
+                    'mapping_id': config.get('config_id', f"{config['target_table']}_scd"),
+                    'target_dataset': config['target_dataset'],
+                    'target_table': config['target_table'],
+                    'scd_type': config.get('scd_type', 'scd2'),
+                    'natural_keys': config.get('natural_keys', []),
+                    'surrogate_key': config.get('surrogate_key'),
+                    'begin_date_column': config.get('begin_date_column'),
+                    'end_date_column': config.get('end_date_column'),
+                    'active_flag_column': config.get('active_flag_column')
+                }
+                mappings.append(mapping)
+            
+            # Process SCD validations in parallel
+            import asyncio
+            tasks = [self.process_scd(project_id, mapping) for mapping in mappings]
+            results = await asyncio.gather(*tasks)
+            
+            # Calculate summary
+            total_tests = sum(len(r.predefined_results) for r in results)
+            passed = sum(
+                len([t for t in r.predefined_results if t.status == 'PASS'])
+                for r in results
+            )
+            failed = sum(
+                len([t for t in r.predefined_results if t.status == 'FAIL'])
+                for r in results
+            )
+            errors = sum(
+                len([t for t in r.predefined_results if t.status == 'ERROR'])
+                for r in results
+            )
+            
+            return {
+                'summary': {
+                    'total_mappings': len(results),
+                    'total_tests': total_tests,
+                    'passed': passed,
+                    'failed': failed,
+                    'errors': errors,
+                    'total_suggestions': 0  # SCD doesn't use AI suggestions
+                },
+                'results_by_mapping': results
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing SCD config table: {str(e)}")
+            raise
+
+
     async def process_config_table(
         self,
         project_id: str,

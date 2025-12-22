@@ -13,10 +13,10 @@ client.create_dataset(dataset, exists_ok=True)
 print(f"Dataset {dataset_id} created or already exists.")
 
 # 2. Create SCD1 Mock Table (with intentional errors)
-scd1_table_id = f"{dataset_id}.scd1_mock"
+scd1_table_id = f"{dataset_id}.D_Seat_WD"
 scd1_schema = [
     bigquery.SchemaField("TableId", "INTEGER", mode="REQUIRED"),
-    bigquery.SchemaField("PositionIDX", "INTEGER", mode="REQUIRED"),
+    bigquery.SchemaField("PositionIDX", "INTEGER", mode="NULLABLE"),
     bigquery.SchemaField("PositionCode", "STRING"),
     bigquery.SchemaField("PositionLabel", "STRING"),
     bigquery.SchemaField("DWSeatID", "INTEGER"),
@@ -35,7 +35,7 @@ scd1_data = [
 ]
 
 # 3. Create SCD2 Mock Table (with intentional errors)
-scd2_table_id = f"{dataset_id}.scd2_mock"
+scd2_table_id = f"{dataset_id}.D_Employee_WD"
 scd2_schema = [
     bigquery.SchemaField("UserId", "STRING", mode="REQUIRED"),
     bigquery.SchemaField("UserName", "STRING"),

@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS `leyin-sandpit.crown_scd_mock` OPTIONS(location="US"
 CREATE SCHEMA IF NOT EXISTS `leyin-sandpit.transform_config` OPTIONS(location="US");
 
 -- 2. Setup SCD1 Mock Table
-CREATE OR REPLACE TABLE `leyin-sandpit.crown_scd_mock.scd1_mock` (
+CREATE OR REPLACE TABLE `leyin-sandpit.crown_scd_mock.D_Seat_WD` (
     TableId INT64 NOT NULL,
     PositionIDX INT64,
     PositionCode STRING,
@@ -15,7 +15,7 @@ CREATE OR REPLACE TABLE `leyin-sandpit.crown_scd_mock.scd1_mock` (
     UpdateTimestamp TIMESTAMP
 );
 
-INSERT INTO `leyin-sandpit.crown_scd_mock.scd1_mock` (TableId, PositionIDX, PositionCode, PositionLabel, DWSeatID, UpdateTimestamp)
+INSERT INTO `leyin-sandpit.crown_scd_mock.D_Seat_WD` (TableId, PositionIDX, PositionCode, PositionLabel, DWSeatID, UpdateTimestamp)
 VALUES
     (101, 1, 'P1', 'Label 1', 1001, '2024-01-01 00:00:00'),
     (101, 1, 'P1_DUPE', 'Label 1 Dupe', 1002, '2024-01-02 00:00:00'), -- DUPLICATE NATURAL KEY (101, 1)
@@ -23,7 +23,7 @@ VALUES
     (103, CAST(NULL AS INT64), 'P3', 'Label 3', 1004, '2024-01-01 00:00:00'); -- NULL NATURAL KEY
 
 -- 3. Setup SCD2 Mock Table
-CREATE OR REPLACE TABLE `leyin-sandpit.crown_scd_mock.scd2_mock` (
+CREATE OR REPLACE TABLE `leyin-sandpit.crown_scd_mock.D_Employee_WD` (
     UserId STRING NOT NULL,
     UserName STRING,
     DWEmployeeID INT64,
@@ -32,7 +32,7 @@ CREATE OR REPLACE TABLE `leyin-sandpit.crown_scd_mock.scd2_mock` (
     DWCurrentRowFlag STRING
 );
 
-INSERT INTO `leyin-sandpit.crown_scd_mock.scd2_mock` (UserId, UserName, DWEmployeeID, DWBeginEffDateTime, DWEndEffDateTime, DWCurrentRowFlag)
+INSERT INTO `leyin-sandpit.crown_scd_mock.D_Employee_WD` (UserId, UserName, DWEmployeeID, DWBeginEffDateTime, DWEndEffDateTime, DWCurrentRowFlag)
 VALUES
     -- Valid record
     ('U1', 'User 1 Old', 5001, '2023-01-01 00:00:00', '2023-06-01 00:00:00', 'N'),
@@ -69,6 +69,5 @@ CREATE OR REPLACE TABLE `leyin-sandpit.transform_config.scd_validation_config` (
 
 INSERT INTO `leyin-sandpit.transform_config.scd_validation_config` (config_id, target_dataset, target_table, scd_type, natural_keys, surrogate_key, begin_date_column, end_date_column, active_flag_column, description)
 VALUES
-    ('seat_scd1', 'DW_Dimensions', 'D_Seat_WD', 'scd1', ['TableId', 'PositionIDX', 'PositionCode', 'PositionLabel'], 'DWSeatID', NULL, NULL, NULL, 'SCD1 for Gaming Seats'),
-    ('employee_scd2', 'DW_Dimensions', 'D_Employee_WD', 'scd2', ['UserId'], 'DWEmployeeID', 'DWBeginEffDateTime', 'DWEndEffDateTime', 'DWCurrentRowFlag', 'SCD2 for Employees'),
-    ('player_scd2', 'DW_Dimensions', 'D_Player_WD', 'scd2', ['PlayerId'], 'DWPlayerID', 'DWBeginEffDateTime', 'DWEndEffDateTime', 'DWCurrentRowFlag', 'SCD2 for Players with Business Rules');
+    ('seat_scd1', 'crown_scd_mock', 'D_Seat_WD', 'scd1', ['TableId', 'PositionIDX'], 'DWSeatID', NULL, NULL, NULL, 'SCD1 Mock for Gaming Seats (Test Data)'),
+    ('employee_scd2', 'crown_scd_mock', 'D_Employee_WD', 'scd2', ['UserId'], 'DWEmployeeID', 'DWBeginEffDateTime', 'DWEndEffDateTime', 'DWCurrentRowFlag', 'SCD2 Mock for Employees (Test Data)');

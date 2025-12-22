@@ -6,7 +6,7 @@ from typing import Optional, List, Dict, Any
 class GenerateTestsRequest(BaseModel):
     """Request model for test generation."""
     project_id: str = Field(..., description="Google Cloud project ID")
-    comparison_mode: str = Field(..., description="Mode: 'schema', 'gcs', or 'gcs-config'")
+    comparison_mode: str = Field(..., description="Mode: 'schema', 'gcs', 'gcs-config', 'scd', or 'scd-config'")
     
     # Schema mode fields
     datasets: Optional[List[str]] = Field(None, description="List of BigQuery datasets")
@@ -85,3 +85,21 @@ class CustomTestRequest(BaseModel):
     description: str
     target_dataset: Optional[str] = None
     target_table: Optional[str] = None
+
+
+class AddSCDConfigRequest(BaseModel):
+    """Request model for adding a new SCD configuration."""
+    project_id: str = Field(..., description="Google Cloud project ID")
+    config_dataset: str = Field(..., description="Config table dataset")
+    config_table: str = Field(..., description="Config table name")
+    config_id: str = Field(..., description="Unique configuration ID")
+    target_dataset: str = Field(..., description="Target dataset containing the SCD table")
+    target_table: str = Field(..., description="Target table name")
+    scd_type: str = Field(..., description="SCD type: 'scd1' or 'scd2'")
+    natural_keys: List[str] = Field(..., description="Natural key columns")
+    surrogate_key: Optional[str] = Field(None, description="Surrogate key column")
+    begin_date_column: Optional[str] = Field(None, description="Begin date column (SCD2)")
+    end_date_column: Optional[str] = Field(None, description="End date column (SCD2)")
+    active_flag_column: Optional[str] = Field(None, description="Active flag column (SCD2)")
+    description: Optional[str] = Field("", description="Configuration description")
+

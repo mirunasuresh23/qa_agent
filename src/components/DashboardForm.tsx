@@ -7,6 +7,7 @@ import HistoryList from "./HistoryList";
 type ComparisonMode = 'schema' | 'gcs' | 'history' | 'scd';
 type FileFormat = 'csv' | 'json' | 'parquet' | 'avro';
 type GCSMode = 'single' | 'config';
+type SCDMode = 'direct' | 'config';
 
 // ... types remain ...
 
@@ -44,12 +45,26 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
     const [targetTable, setTargetTable] = useState("");
 
     // SCD mode state
+    const [scdMode, setScdMode] = useState<SCDMode>('direct');
     const [scdType, setScdType] = useState<'scd1' | 'scd2'>('scd2');
     const [naturalKeys, setNaturalKeys] = useState("");
     const [surrogateKey, setSurrogateKey] = useState("");
     const [beginDateColumn, setBeginDateColumn] = useState("DWBeginEffDateTime");
     const [endDateColumn, setEndDateColumn] = useState("DWEndEffDateTime");
     const [activeFlagColumn, setActiveFlagColumn] = useState("DWCurrentRowFlag");
+
+    // New config form state
+    const [showAddConfig, setShowAddConfig] = useState(false);
+    const [newConfigId, setNewConfigId] = useState("");
+    const [newTargetDataset, setNewTargetDataset] = useState("");
+    const [newTargetTable, setNewTargetTable] = useState("");
+    const [newScdType, setNewScdType] = useState<'scd1' | 'scd2'>('scd2');
+    const [newNaturalKeys, setNewNaturalKeys] = useState("");
+    const [newSurrogateKey, setNewSurrogateKey] = useState("");
+    const [newBeginDateColumn, setNewBeginDateColumn] = useState("DWBeginEffDateTime");
+    const [newEndDateColumn, setNewEndDateColumn] = useState("DWEndEffDateTime");
+    const [newActiveFlagColumn, setNewActiveFlagColumn] = useState("DWCurrentRowFlag");
+    const [newDescription, setNewDescription] = useState("");
 
     const addDataset = () => setDatasets([...datasets, '']);
 
@@ -129,20 +144,29 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                     };
                 }
             } else if (comparisonMode === 'scd') {
-                if (!targetDataset || !targetTable || !naturalKeys) {
-                    throw new Error("Target dataset, table, and natural keys are required for SCD validation.");
+                if (scdMode === 'direct') {
+                    if (!targetDataset || !targetTable || !naturalKeys) {
+                        throw new Error("Target dataset, table, and natural keys are required for SCD validation.");
+                    }
+                    payload = {
+                        ...payload,
+                        target_dataset: targetDataset,
+                        target_table: targetTable,
+                        scd_type: scdType,
+                        natural_keys: naturalKeys.split(',').map(k => k.trim()),
+                        surrogate_key: surrogateKey || undefined,
+                        begin_date_column: scdType === 'scd2' ? beginDateColumn : undefined,
+                        end_date_column: scdType === 'scd2' ? endDateColumn : undefined,
+                        active_flag_column: scdType === 'scd2' ? activeFlagColumn : undefined
+                    };
+                } else if (scdMode === 'config') {
+                    payload = {
+                        ...payload,
+                        comparison_mode: 'scd-config',
+                        config_dataset: configDataset,
+                        config_table: configTable
+                    };
                 }
-                payload = {
-                    ...payload,
-                    target_dataset: targetDataset,
-                    target_table: targetTable,
-                    scd_type: scdType,
-                    natural_keys: naturalKeys.split(',').map(k => k.trim()),
-                    surrogate_key: surrogateKey || undefined,
-                    begin_date_column: scdType === 'scd2' ? beginDateColumn : undefined,
-                    end_date_column: scdType === 'scd2' ? endDateColumn : undefined,
-                    active_flag_column: scdType === 'scd2' ? activeFlagColumn : undefined
-                };
             }
 
             const response = await fetch(endpoint, {
@@ -167,6 +191,62 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
             alert(error.message || "An error occurred while generating tests.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleAddConfig = async () => {
+        try {
+            if (!newConfigId || !newTargetDataset || !newTargetTable || !newNaturalKeys) {
+                alert("Please fill in all required fields (Config ID, Dataset, Table, Natural Keys)");
+                return;
+            }
+
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://data-qa-agent-backend-1037417342779.us-central1.run.app';
+            const endpoint = `${backendUrl}/api/scd-config`;
+
+            const payload = {
+                project_id: projectId,
+                config_dataset: configDataset,
+                config_table: configTable,
+                config_id: newConfigId,
+                target_dataset: newTargetDataset,
+                target_table: newTargetTable,
+                scd_type: newScdType,
+                natural_keys: newNaturalKeys.split(',').map(k => k.trim()),
+                surrogate_key: newSurrogateKey || null,
+                begin_date_column: newScdType === 'scd2' ? newBeginDateColumn : null,
+                end_date_column: newScdType === 'scd2' ? newEndDateColumn : null,
+                active_flag_column: newScdType === 'scd2' ? newActiveFlagColumn : null,
+                description: newDescription
+            };
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'Failed to add configuration');
+            }
+
+            alert(`Configuration "${newConfigId}" added successfully!`);
+
+            // Reset form
+            setShowAddConfig(false);
+            setNewConfigId("");
+            setNewTargetDataset("");
+            setNewTargetTable("");
+            setNewNaturalKeys("");
+            setNewSurrogateKey("");
+            setNewDescription("");
+
+        } catch (error: any) {
+            console.error("Error adding config:", error);
+            alert(error.message || "An error occurred while adding the configuration.");
         }
     };
 
@@ -558,168 +638,468 @@ export default function DashboardForm({ comparisonMode }: DashboardFormProps) {
                     {/* SCD Validation Mode Fields */}
                     {comparisonMode === 'scd' && (
                         <>
-                            {/* Target Dataset & Table */}
-                            <div style={{ display: 'flex', gap: '1.75rem' }}>
-                                <div style={{ flex: 1, marginBottom: '1.75rem' }}>
-                                    <label className="label" htmlFor="targetDatasetScd">
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            🎯 Target Dataset
-                                        </span>
-                                    </label>
-                                    <input
-                                        id="targetDatasetScd"
-                                        type="text"
-                                        className="input"
-                                        value={targetDataset}
-                                        onChange={(e) => setTargetDataset(e.target.value)}
-                                        required
-                                        placeholder="e.g., DW_Dimensions"
-                                    />
-                                </div>
-                                <div style={{ flex: 1, marginBottom: '1.75rem' }}>
-                                    <label className="label" htmlFor="targetTableScd">
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            📊 Target Table
-                                        </span>
-                                    </label>
-                                    <input
-                                        id="targetTableScd"
-                                        type="text"
-                                        className="input"
-                                        value={targetTable}
-                                        onChange={(e) => setTargetTable(e.target.value)}
-                                        required
-                                        placeholder="e.g., D_Employee_WD"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* SCD Type Toggle */}
-                            <div style={{ marginBottom: '1.75rem' }}>
-                                <label className="label">SCD Type</label>
+                            {/* SCD Mode Toggle */}
+                            <div style={{ marginBottom: '2rem' }}>
+                                <label className="label">Validation Source</label>
                                 <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                                     <button
                                         type="button"
-                                        onClick={() => setScdType('scd1')}
+                                        onClick={() => setScdMode('direct')}
                                         style={{
                                             flex: 1,
                                             padding: '0.75rem',
-                                            background: scdType === 'scd1' ? 'var(--gradient-primary)' : 'var(--secondary)',
-                                            color: scdType === 'scd1' ? 'white' : 'var(--foreground)',
-                                            border: scdType === 'scd1' ? 'none' : '2px solid var(--border)',
+                                            background: scdMode === 'direct' ? 'var(--gradient-primary)' : 'var(--secondary)',
+                                            color: scdMode === 'direct' ? 'white' : 'var(--foreground)',
+                                            border: scdMode === 'direct' ? 'none' : '2px solid var(--border)',
                                             borderRadius: 'var(--radius)',
                                             cursor: 'pointer',
                                             fontWeight: '600',
                                             transition: 'all 0.2s ease'
                                         }}
                                     >
-                                        🔢 SCD Type 1
+                                        ✏️ Direct Input
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => setScdType('scd2')}
+                                        onClick={() => setScdMode('config')}
                                         style={{
                                             flex: 1,
                                             padding: '0.75rem',
-                                            background: scdType === 'scd2' ? 'var(--gradient-primary)' : 'var(--secondary)',
-                                            color: scdType === 'scd2' ? 'white' : 'var(--foreground)',
-                                            border: scdType === 'scd2' ? 'none' : '2px solid var(--border)',
+                                            background: scdMode === 'config' ? 'var(--gradient-primary)' : 'var(--secondary)',
+                                            color: scdMode === 'config' ? 'white' : 'var(--foreground)',
+                                            border: scdMode === 'config' ? 'none' : '2px solid var(--border)',
                                             borderRadius: 'var(--radius)',
                                             cursor: 'pointer',
                                             fontWeight: '600',
                                             transition: 'all 0.2s ease'
                                         }}
                                     >
-                                        🕒 SCD Type 2
+                                        📋 Config Table
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Natural Keys */}
-                            <div style={{ marginBottom: '1.75rem' }}>
-                                <label className="label" htmlFor="naturalKeys">
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        🔑 Natural Keys
-                                    </span>
-                                </label>
-                                <input
-                                    id="naturalKeys"
-                                    type="text"
-                                    className="input"
-                                    value={naturalKeys}
-                                    onChange={(e) => setNaturalKeys(e.target.value)}
-                                    required
-                                    placeholder="e.g., UserId (comma separate for composite)"
-                                />
-                                <p style={{ fontSize: '0.8125rem', color: 'var(--secondary-foreground)', marginTop: '0.5rem', fontStyle: 'italic' }}>
-                                    💡 Columns used to track unique business entities
-                                </p>
-                            </div>
+                            {/* Config Table Mode */}
+                            {scdMode === 'config' && (
+                                <>
+                                    <div style={{ marginBottom: '1.75rem' }}>
+                                        <label className="label" htmlFor="scdConfigDataset">
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                📁 Config Dataset
+                                            </span>
+                                        </label>
+                                        <input
+                                            id="scdConfigDataset"
+                                            type="text"
+                                            className="input"
+                                            value={configDataset}
+                                            onChange={(e) => setConfigDataset(e.target.value)}
+                                            required
+                                            placeholder="e.g., transform_config"
+                                        />
+                                    </div>
 
-                            {/* Surrogate Key */}
-                            <div style={{ marginBottom: '1.75rem' }}>
-                                <label className="label" htmlFor="surrogateKey">
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        🆔 Surrogate Key (Optional)
-                                    </span>
-                                </label>
-                                <input
-                                    id="surrogateKey"
-                                    type="text"
-                                    className="input"
-                                    value={surrogateKey}
-                                    onChange={(e) => setSurrogateKey(e.target.value)}
-                                    placeholder="e.g., DWEmployeeID"
-                                />
-                            </div>
+                                    <div style={{ marginBottom: '1.75rem' }}>
+                                        <label className="label" htmlFor="scdConfigTable">
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                📊 Config Table Name
+                                            </span>
+                                        </label>
+                                        <input
+                                            id="scdConfigTable"
+                                            type="text"
+                                            className="input"
+                                            value={configTable}
+                                            onChange={(e) => setConfigTable(e.target.value)}
+                                            required
+                                            placeholder="e.g., scd_validation_config"
+                                        />
+                                        <p style={{ fontSize: '0.8125rem', color: 'var(--secondary-foreground)', marginTop: '0.75rem', fontStyle: 'italic' }}>
+                                            💡 The config table contains all SCD dimension table configurations
+                                        </p>
+                                    </div>
 
-                            {/* SCD2 Specific Fields */}
-                            {scdType === 'scd2' && (
-                                <div style={{
-                                    padding: '1.25rem',
-                                    background: 'var(--secondary)',
-                                    borderRadius: 'var(--radius)',
-                                    border: '1px solid var(--border)',
-                                    marginBottom: '1.75rem'
-                                }}>
-                                    <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>📜 History Tracking Columns</h3>
+                                    {/* Add New Table Button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddConfig(!showAddConfig)}
+                                        style={{
+                                            marginBottom: '1.5rem',
+                                            padding: '0.75rem 1.25rem',
+                                            backgroundColor: showAddConfig ? 'var(--secondary)' : 'var(--primary)',
+                                            color: showAddConfig ? 'var(--primary)' : 'white',
+                                            border: showAddConfig ? '2px solid var(--primary)' : 'none',
+                                            borderRadius: 'var(--radius)',
+                                            cursor: 'pointer',
+                                            fontWeight: '600',
+                                            fontSize: '0.875rem',
+                                            width: '100%',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        {showAddConfig ? '✖️ Cancel' : '➕ Add New Table Configuration'}
+                                    </button>
 
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                                        <div style={{ flex: '1 1 200px' }}>
-                                            <label className="label" htmlFor="beginDate">Begin Date</label>
+                                    {/* Add New Config Form */}
+                                    {showAddConfig && (
+                                        <div style={{
+                                            padding: '1.5rem',
+                                            background: 'var(--secondary)',
+                                            borderRadius: 'var(--radius)',
+                                            border: '2px solid var(--primary)',
+                                            marginBottom: '1.75rem'
+                                        }}>
+                                            <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>📝 New Table Configuration</h3>
+
+                                            {/* Config ID */}
+                                            <div style={{ marginBottom: '1rem' }}>
+                                                <label className="label" htmlFor="newConfigId">Config ID *</label>
+                                                <input
+                                                    id="newConfigId"
+                                                    type="text"
+                                                    className="input"
+                                                    value={newConfigId}
+                                                    onChange={(e) => setNewConfigId(e.target.value)}
+                                                    placeholder="e.g., my_table_scd2"
+                                                />
+                                            </div>
+
+                                            {/* Target Dataset & Table */}
+                                            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <label className="label" htmlFor="newTargetDataset">Target Dataset *</label>
+                                                    <input
+                                                        id="newTargetDataset"
+                                                        type="text"
+                                                        className="input"
+                                                        value={newTargetDataset}
+                                                        onChange={(e) => setNewTargetDataset(e.target.value)}
+                                                        placeholder="e.g., DW_Dimensions"
+                                                    />
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <label className="label" htmlFor="newTargetTable">Target Table *</label>
+                                                    <input
+                                                        id="newTargetTable"
+                                                        type="text"
+                                                        className="input"
+                                                        value={newTargetTable}
+                                                        onChange={(e) => setNewTargetTable(e.target.value)}
+                                                        placeholder="e.g., D_MyTable_WD"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* SCD Type Toggle */}
+                                            <div style={{ marginBottom: '1rem' }}>
+                                                <label className="label">SCD Type *</label>
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setNewScdType('scd1')}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '0.5rem',
+                                                            background: newScdType === 'scd1' ? 'var(--primary)' : 'var(--background)',
+                                                            color: newScdType === 'scd1' ? 'white' : 'var(--foreground)',
+                                                            border: '1px solid var(--border)',
+                                                            borderRadius: 'var(--radius)',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.875rem'
+                                                        }}
+                                                    >
+                                                        Type 1
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setNewScdType('scd2')}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '0.5rem',
+                                                            background: newScdType === 'scd2' ? 'var(--primary)' : 'var(--background)',
+                                                            color: newScdType === 'scd2' ? 'white' : 'var(--foreground)',
+                                                            border: '1px solid var(--border)',
+                                                            borderRadius: 'var(--radius)',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.875rem'
+                                                        }}
+                                                    >
+                                                        Type 2
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Natural Keys */}
+                                            <div style={{ marginBottom: '1rem' }}>
+                                                <label className="label" htmlFor="newNaturalKeys">Natural Keys *</label>
+                                                <input
+                                                    id="newNaturalKeys"
+                                                    type="text"
+                                                    className="input"
+                                                    value={newNaturalKeys}
+                                                    onChange={(e) => setNewNaturalKeys(e.target.value)}
+                                                    placeholder="e.g., UserId (comma-separated for composite)"
+                                                />
+                                            </div>
+
+                                            {/* Surrogate Key */}
+                                            <div style={{ marginBottom: '1rem' }}>
+                                                <label className="label" htmlFor="newSurrogateKey">Surrogate Key (Optional)</label>
+                                                <input
+                                                    id="newSurrogateKey"
+                                                    type="text"
+                                                    className="input"
+                                                    value={newSurrogateKey}
+                                                    onChange={(e) => setNewSurrogateKey(e.target.value)}
+                                                    placeholder="e.g., DWMyTableID"
+                                                />
+                                            </div>
+
+                                            {/* SCD2 Fields */}
+                                            {newScdType === 'scd2' && (
+                                                <div style={{ marginBottom: '1rem', padding: '1rem', background: 'var(--background)', borderRadius: 'var(--radius)' }}>
+                                                    <h4 style={{ fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.75rem' }}>SCD Type 2 Columns</h4>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                        <div>
+                                                            <label className="label" htmlFor="newBeginDate">Begin Date Column</label>
+                                                            <input
+                                                                id="newBeginDate"
+                                                                type="text"
+                                                                className="input"
+                                                                value={newBeginDateColumn}
+                                                                onChange={(e) => setNewBeginDateColumn(e.target.value)}
+                                                                placeholder="DWBeginEffDateTime"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="label" htmlFor="newEndDate">End Date Column</label>
+                                                            <input
+                                                                id="newEndDate"
+                                                                type="text"
+                                                                className="input"
+                                                                value={newEndDateColumn}
+                                                                onChange={(e) => setNewEndDateColumn(e.target.value)}
+                                                                placeholder="DWEndEffDateTime"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="label" htmlFor="newActiveFlag">Active Flag Column</label>
+                                                            <input
+                                                                id="newActiveFlag"
+                                                                type="text"
+                                                                className="input"
+                                                                value={newActiveFlagColumn}
+                                                                onChange={(e) => setNewActiveFlagColumn(e.target.value)}
+                                                                placeholder="DWCurrentRowFlag"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Description */}
+                                            <div style={{ marginBottom: '1rem' }}>
+                                                <label className="label" htmlFor="newDescription">Description (Optional)</label>
+                                                <input
+                                                    id="newDescription"
+                                                    type="text"
+                                                    className="input"
+                                                    value={newDescription}
+                                                    onChange={(e) => setNewDescription(e.target.value)}
+                                                    placeholder="e.g., Customer dimension table"
+                                                />
+                                            </div>
+
+                                            {/* Save Button */}
+                                            <button
+                                                type="button"
+                                                onClick={handleAddConfig}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '0.75rem',
+                                                    background: 'var(--gradient-primary)',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: 'var(--radius)',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '600',
+                                                    fontSize: '0.875rem'
+                                                }}
+                                            >
+                                                💾 Save Configuration
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {/* Direct Input Mode */}
+                            {scdMode === 'direct' && (
+                                <>
+                                    {/* Target Dataset & Table */}
+                                    <div style={{ display: 'flex', gap: '1.75rem' }}>
+                                        <div style={{ flex: 1, marginBottom: '1.75rem' }}>
+                                            <label className="label" htmlFor="targetDatasetScd">
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    🎯 Target Dataset
+                                                </span>
+                                            </label>
                                             <input
-                                                id="beginDate"
+                                                id="targetDatasetScd"
                                                 type="text"
                                                 className="input"
-                                                value={beginDateColumn}
-                                                onChange={(e) => setBeginDateColumn(e.target.value)}
-                                                placeholder="DWBeginEffDateTime"
+                                                value={targetDataset}
+                                                onChange={(e) => setTargetDataset(e.target.value)}
+                                                required
+                                                placeholder="e.g., DW_Dimensions"
                                             />
                                         </div>
-                                        <div style={{ flex: '1 1 200px' }}>
-                                            <label className="label" htmlFor="endDate">End Date</label>
+                                        <div style={{ flex: 1, marginBottom: '1.75rem' }}>
+                                            <label className="label" htmlFor="targetTableScd">
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    📊 Target Table
+                                                </span>
+                                            </label>
                                             <input
-                                                id="endDate"
+                                                id="targetTableScd"
                                                 type="text"
                                                 className="input"
-                                                value={endDateColumn}
-                                                onChange={(e) => setEndDateColumn(e.target.value)}
-                                                placeholder="DWEndEffDateTime"
-                                            />
-                                        </div>
-                                        <div style={{ flex: '1 1 100%' }}>
-                                            <label className="label" htmlFor="activeFlag">Active Row Flag</label>
-                                            <input
-                                                id="activeFlag"
-                                                type="text"
-                                                className="input"
-                                                value={activeFlagColumn}
-                                                onChange={(e) => setActiveFlagColumn(e.target.value)}
-                                                placeholder="DWCurrentRowFlag"
+                                                value={targetTable}
+                                                onChange={(e) => setTargetTable(e.target.value)}
+                                                required
+                                                placeholder="e.g., D_Employee_WD"
                                             />
                                         </div>
                                     </div>
-                                </div>
+
+                                    {/* SCD Type Toggle */}
+                                    <div style={{ marginBottom: '1.75rem' }}>
+                                        <label className="label">SCD Type</label>
+                                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setScdType('scd1')}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '0.75rem',
+                                                    background: scdType === 'scd1' ? 'var(--gradient-primary)' : 'var(--secondary)',
+                                                    color: scdType === 'scd1' ? 'white' : 'var(--foreground)',
+                                                    border: scdType === 'scd1' ? 'none' : '2px solid var(--border)',
+                                                    borderRadius: 'var(--radius)',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '600',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                            >
+                                                🔢 SCD Type 1
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setScdType('scd2')}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '0.75rem',
+                                                    background: scdType === 'scd2' ? 'var(--gradient-primary)' : 'var(--secondary)',
+                                                    color: scdType === 'scd2' ? 'white' : 'var(--foreground)',
+                                                    border: scdType === 'scd2' ? 'none' : '2px solid var(--border)',
+                                                    borderRadius: 'var(--radius)',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '600',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                            >
+                                                🕒 SCD Type 2
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Natural Keys */}
+                                    <div style={{ marginBottom: '1.75rem' }}>
+                                        <label className="label" htmlFor="naturalKeys">
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                🔑 Natural Keys
+                                            </span>
+                                        </label>
+                                        <input
+                                            id="naturalKeys"
+                                            type="text"
+                                            className="input"
+                                            value={naturalKeys}
+                                            onChange={(e) => setNaturalKeys(e.target.value)}
+                                            required
+                                            placeholder="e.g., UserId (comma separate for composite)"
+                                        />
+                                        <p style={{ fontSize: '0.8125rem', color: 'var(--secondary-foreground)', marginTop: '0.5rem', fontStyle: 'italic' }}>
+                                            💡 Columns used to track unique business entities
+                                        </p>
+                                    </div>
+
+                                    {/* Surrogate Key */}
+                                    <div style={{ marginBottom: '1.75rem' }}>
+                                        <label className="label" htmlFor="surrogateKey">
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                🆔 Surrogate Key (Optional)
+                                            </span>
+                                        </label>
+                                        <input
+                                            id="surrogateKey"
+                                            type="text"
+                                            className="input"
+                                            value={surrogateKey}
+                                            onChange={(e) => setSurrogateKey(e.target.value)}
+                                            placeholder="e.g., DWEmployeeID"
+                                        />
+                                    </div>
+
+                                    {/* SCD2 Specific Fields */}
+                                    {scdType === 'scd2' && (
+                                        <div style={{
+                                            padding: '1.25rem',
+                                            background: 'var(--secondary)',
+                                            borderRadius: 'var(--radius)',
+                                            border: '1px solid var(--border)',
+                                            marginBottom: '1.75rem'
+                                        }}>
+                                            <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>📜 History Tracking Columns</h3>
+
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                                                <div style={{ flex: '1 1 200px' }}>
+                                                    <label className="label" htmlFor="beginDate">Begin Date</label>
+                                                    <input
+                                                        id="beginDate"
+                                                        type="text"
+                                                        className="input"
+                                                        value={beginDateColumn}
+                                                        onChange={(e) => setBeginDateColumn(e.target.value)}
+                                                        placeholder="DWBeginEffDateTime"
+                                                    />
+                                                </div>
+                                                <div style={{ flex: '1 1 200px' }}>
+                                                    <label className="label" htmlFor="endDate">End Date</label>
+                                                    <input
+                                                        id="endDate"
+                                                        type="text"
+                                                        className="input"
+                                                        value={endDateColumn}
+                                                        onChange={(e) => setEndDateColumn(e.target.value)}
+                                                        placeholder="DWEndEffDateTime"
+                                                    />
+                                                </div>
+                                                <div style={{ flex: '1 1 100%' }}>
+                                                    <label className="label" htmlFor="activeFlag">Active Row Flag</label>
+                                                    <input
+                                                        id="activeFlag"
+                                                        type="text"
+                                                        className="input"
+                                                        value={activeFlagColumn}
+                                                        onChange={(e) => setActiveFlagColumn(e.target.value)}
+                                                        placeholder="DWCurrentRowFlag"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </>
                     )}

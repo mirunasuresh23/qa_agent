@@ -34,16 +34,16 @@ print(f"Table {table_id} created.")
 rows_to_insert = [
     {
         "config_id": "seat_scd1",
-        "target_dataset": "DW_Dimensions",
+        "target_dataset": "crown_scd_mock",
         "target_table": "D_Seat_WD",
         "scd_type": "scd1",
-        "natural_keys": ["TableId", "PositionIDX", "PositionCode", "PositionLabel"],
+        "natural_keys": ["TableId", "PositionIDX"],
         "surrogate_key": "DWSeatID",
-        "description": "SCD1 for Gaming Seats"
+        "description": "SCD1 Mock for Gaming Seats (Test Data)"
     },
     {
         "config_id": "employee_scd2",
-        "target_dataset": "DW_Dimensions",
+        "target_dataset": "crown_scd_mock",
         "target_table": "D_Employee_WD",
         "scd_type": "scd2",
         "natural_keys": ["UserId"],
@@ -51,20 +51,9 @@ rows_to_insert = [
         "begin_date_column": "DWBeginEffDateTime",
         "end_date_column": "DWEndEffDateTime",
         "active_flag_column": "DWCurrentRowFlag",
-        "description": "SCD2 for Employees"
+        "description": "SCD2 Mock for Employees (Test Data)"
     },
-    {
-        "config_id": "player_scd2",
-        "target_dataset": "DW_Dimensions",
-        "target_table": "D_Player_WD",
-        "scd_type": "scd2",
-        "natural_keys": ["PlayerId"],
-        "surrogate_key": "DWPlayerID",
-        "begin_date_column": "DWBeginEffDateTime",
-        "end_date_column": "DWEndEffDateTime",
-        "active_flag_column": "DWCurrentRowFlag",
-        "description": "SCD2 for Players with Business Rules"
-    }
+
 ]
 
 errors = client.insert_rows_json(table, rows_to_insert)

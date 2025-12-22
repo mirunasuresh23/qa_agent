@@ -12,7 +12,8 @@ from app.models import (
     HealthResponse,
     TestSummary,
     ConfigTableSummary,
-    CustomTestRequest
+    CustomTestRequest,
+    AddSCDConfigRequest
 )
 from app.services.test_executor import test_executor
 from app.services.bigquery_service import bigquery_service
@@ -214,6 +215,49 @@ async def generate_tests(request: GenerateTestsRequest):
                 logger.error(f"Error in schema validation: {str(e)}")
                 raise HTTPException(status_code=500, detail=str(e))
         
+        # SCD Config Table mode
+        elif request.comparison_mode == 'scd-config':
+            if not request.config_dataset or not request.config_table:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Missing required fields: config_dataset, config_table for scd-config mode"
+                )
+            
+            result = await test_executor.process_scd_config_table(
+                project_id=request.project_id,
+                config_dataset=request.config_dataset,
+                config_table=request.config_table
+            )
+            
+            try:
+                summary_data = result['summary']
+                # Convert results objects to dicts for JSON serialization
+                results_by_mapping_dicts = [r.dict() for r in result['results_by_mapping']]
+
+                await bigquery_service.log_execution(
+                    project_id=request.project_id,
+                    execution_data={
+                        "comparison_mode": "scd_config_table",
+                        "source": f"{request.config_dataset}.{request.config_table}",
+                        "target": "Multiple SCD Tables",
+                        "status": "AT_RISK" if summary_data['failed'] > 0 else "PASS",
+                        "total_tests": summary_data['total_tests'],
+                        "passed_tests": summary_data['passed'],
+                        "failed_tests": summary_data['failed'],
+                        "details": {
+                            "summary": summary_data,
+                            "results_by_mapping": results_by_mapping_dicts
+                        }
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Failed to log scd config execution: {e}")
+
+            return ConfigTableResponse(
+                summary=ConfigTableSummary(**result['summary']),
+                results_by_mapping=result['results_by_mapping']
+            )
+        
         elif request.comparison_mode == 'scd':
             if not request.target_dataset or not request.target_table:
                 raise HTTPException(status_code=400, detail="target_dataset and target_table are required for scd mode")
@@ -295,6 +339,52 @@ async def get_test_history(project_id: str = settings.google_cloud_project, limi
     except Exception as e:
         logger.error(f"Error fetching history: {e}")
         return []
+
+
+@app.post("/api/scd-config")
+async def add_scd_config(request: AddSCDConfigRequest):
+    """Add a new SCD validation configuration to the config table."""
+    try:
+        # Prepare config data
+        config_data = {
+            "config_id": request.config_id,
+            "target_dataset": request.target_dataset,
+            "target_table": request.target_table,
+            "scd_type": request.scd_type,
+            "natural_keys": request.natural_keys,
+            "surrogate_key": request.surrogate_key,
+            "begin_date_column": request.begin_date_column,
+            "end_date_column": request.end_date_column,
+            "active_flag_column": request.active_flag_column,
+            "description": request.description
+        }
+        
+        # Insert into config table
+        success = await bigquery_service.insert_scd_config(
+            project_id=request.project_id,
+            config_dataset=request.config_dataset,
+            config_table=request.config_table,
+            config_data=config_data
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to insert SCD configuration into config table"
+            )
+        
+        return {
+            "success": True,
+            "message": "SCD configuration added successfully",
+            "config_id": request.config_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding SCD config: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.get("/api/predefined-tests")
