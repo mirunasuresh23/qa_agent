@@ -22,8 +22,12 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
+      - '--service-account=qa-agent-sa@crown-cdw-intelia-dev.iam.gserviceaccount.com'
       - '--set-env-vars'
       - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+      
+     
+      
       # - '--service-account'
       # - 'sa-qa-backend@$PROJECT_ID.iam.gserviceaccount.com'
 
