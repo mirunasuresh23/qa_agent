@@ -1,7 +1,7 @@
 steps:
   # 1. Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', '$LOCATION-docker.pkg.dev/$PROJECT_ID/agent-repo/$_SERVICE_NAME:latest', '.']
+    args: ['build', '-t', '$_LOCATION-docker.pkg.dev/$PROJECT_ID/agent-repo/$_SERVICE_NAME:latest', '.']
     # Frontend Dockerfile is in root, so default dir is fine
   
   # 2. Push the container image to Artifact Registry
