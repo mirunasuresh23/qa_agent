@@ -26,7 +26,6 @@ steps:
       - 'NEXT_PUBLIC_BACKEND_URL=$_BACKEND_URL'
 substitutions:
     _SERVICE_NAME: qa-agent-frontend
-    LOCATION: australia-southeast1
 images:
   - '$LOCATION-docker.pkg.dev/$PROJECT_ID/agent-repo/$_SERVICE_NAME:latest'
 options:
